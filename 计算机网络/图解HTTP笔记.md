@@ -19,9 +19,9 @@
 
 常见编码传输方式：
 
-- gzip
-- compress
-- deflate(zlib)
+- gzip:  采用Lempel-Ziv算法及32位循环冗余检测(CRC)
+- compress: 由UNIX文件压缩程序compress生成的编码格式，采用Lempel-Ziv-Welch算法
+- deflate(zlib)：组合使用zlib及deflate压缩算法生成的
 - identity(不进行编码)
 
 发送多种数据的多部份对象集合（图片或文本上传时使用)
@@ -75,6 +75,8 @@ Content-Type:
 
 404 Not Found：表示服务器找不到请求的资源，也可以在服务器拒绝请求且不想说明理由时使用
 
+417 Expectation failed：服务器无法理解客户端的期望做出回应而发生错误
+
 #### 5XX服务器错误：
 
 500 Internal Server Error：表示服务器在执行请求时发生了错误
@@ -104,3 +106,80 @@ Content-Type:
 | Via               | 代理服务器的相关信息       |
 | Warning           | 错误通知                   |
 
+### 请求首部字段
+
+| 首部字段名        | 说明                               |
+| ----------------- | ---------------------------------- |
+| Accept            | 用户代理可处理的媒体类型           |
+| Accept-Charset    | 优先字符集                         |
+| Accept-Encoding   | 优先编码内容                       |
+| Accept-Language   | 优先语言                           |
+| Authorization     | Web认证信息                        |
+| Expect            | 期待的服务器特定行为               |
+| From              | 用户邮箱地址                       |
+| Host              | 请求资源所在服务器                 |
+| If-Match          | 比较实体标记（E-tag）              |
+| If-Modified-Since | 比较资源更新时间                   |
+| If-None-Match     | 比较实体标记(和If-Match)相反       |
+| If-Range          | 资源未更新时发送实体Byte的范围请求 |
+| Range             | 实体的字节范围请求                 |
+
+### 响应首部字段
+
+| 首部字段名         | 说明                         |
+| ------------------ | ---------------------------- |
+| Accept-Ranges      | 是否接受字节范围请求         |
+| Age                | 推算资源创建经过时间         |
+| Etag               | 资源匹配信息                 |
+| Location           | 令客户端重定向至指定URI      |
+| Proxy-Authenticate | 代理服务器对客户端的认证信息 |
+| Retry-After        | 再次发起请求时机的要求       |
+| Server             | HTTP服务器的安装信息         |
+| Vary               | 代理服务器缓存的管理信息     |
+
+### 实体首部字段
+
+| 首部字段名       | 说明                   |
+| ---------------- | ---------------------- |
+| Allow            | 资源可支持的HTTP方法   |
+| Content-Encoding | 实体主体适用的编码方式 |
+| Content-Language | 实体主体的自然语言     |
+| Content-Length   | 实体主体的大小         |
+| Content-Location | 替代对应资源的URI      |
+| Content-MD5      | 实体主体的报文摘要     |
+| Content-Range    | 实体主体的位置信息     |
+| Content-Type     | 实体主体的媒体信息     |
+| Expires          | 实体主体过期的日期时间 |
+| Last-Modified    | 资源的最后修改时间     |
+
+### HTTP/1.1 通用首部字段
+
+请求报文和响应报文都会用到的首部就叫通用首部
+
+缓存控制：
+
+```
+Cache-Control: private, max-age=0, no-cache
+```
+
+缓存请求指令有
+
+| 指令           | 参数   | 说明                                                 |
+| -------------- | ------ | ---------------------------------------------------- |
+| no-cache       | 无     | 强制向源服务器再次验证资源是否过期，不缓存过期的资源 |
+| no-store       | 无     | 不缓存请求或响应的任何内容                           |
+| max-age= 秒    | 必需   | 响应的最大age值                                      |
+| max-stale = 秒 | 可省略 | 接收已过期的响应                                     |
+| min-fresh = 秒 | 必需   | 期望在指定时间内的响应仍有效                         |
+
+缓存响应指令有
+
+| 指令            | 参数   | 说明                                                         |
+| --------------- | ------ | ------------------------------------------------------------ |
+| public          | 无     | 可向任意方提供响应的缓存                                     |
+| private         | 可省略 | 仅向特定用户返回响应                                         |
+| no-cache        | 可省略 | 缓存前必须先确认有效性，目的是为了防止从缓存中返回过期的资源。 |
+| no-store        | 无     | 不缓存请求或响应的任何内容                                   |
+| must-revalidate | 无     | 可缓存但必须再向源服务器进行确认                             |
+| max-age = 秒    | 必需   | 响应的最大Age值，用了该字段会忽略Expires字段的处理           |
+| s-maxage = 秒   | 必须   | 功能和max-age类似，但是它只用于公共缓存服务器。表示响应的最大Age值，用了该字段会忽略Expires首部字段和max-age指令的处理 |
