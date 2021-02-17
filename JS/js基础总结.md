@@ -1,6 +1,6 @@
 ## defer和async的区别
 
-有`derer`的话,加载后续文档元素的过程将和 js 的加载并行进行（异步），但是js 的执行要在所有元素解析完成之后，`DOMContentLoaded` 事件触发之前完成，并且多个defer会按照顺序进行加载。而`async`会在js下载完成之后立即执行，哪个先加载好先执行哪个。
+有`derer`的话，加载后续文档元素的过程将和 Js 的加载并行进行（异步），但是Js的执行要在所有元素解析完成之后，`DOMContentLoaded` 事件触发之前完成，并且多个defer会按照顺序进行加载。而`async`会在Js下载完成之后立即执行，哪个先加载好先执行哪个。
 
 ## document.ready和document.onload的区别
 
@@ -162,4 +162,83 @@ function fn(args) {
 ## 浏览器的解析渲染原理以及JS、CSS阻塞问题分析
 
 https://blog.csdn.net/liu_yunzhao/article/details/91550704
+
+浏览器在渲染网页时会开启**两条线程**，**渲染引擎线程和JS引擎线程**，但这两条线程是互斥的，同时只能有一个线程在执行。也就是说在构建DOM树时，渲染引擎在执行：
+
+**当遇到JS时**：渲染引擎会停止执行，控制权交给JS引擎，当执行JS代码时
+如果遇到获取DOM，那么如果该DOM还没有解析，则会获取为null，如果JS代码还操作了CSS，而这个CSS如果还没有下载和构建，那么浏览器首先会阻塞JS引擎执行，然后会开启一个异步请求线程，在该线程上，去下载构建CSS规则树，CSS规则树构建完成后，再继续执行JS代码，当JS执行完以后，控制权再次交给渲染引擎去执行。
+
+**当遇到CSS元素时**：也会开启异步线程，去下载构建CSS规则树，但同时也会继续构建后面的DOM树，也就是说DOM解析和CSS解析可以同时进行，但如果后面遇到JS元素，则会阻塞JS引擎线程执行，后面DOM树解析不受影响。
+
+
+
+## 实现图片懒加载
+
+图片占位符
+
+```javascript
+<img src="default.jpg" data-src="http://xxx/target.jpg">
+```
+
+### 方案一：使用clientHeight、scrollTop 和 offsetTop
+
+```javascript
+let imgs = document.getElementsByTagName("img")
+let count = 0  //计数器，从第一个图片开始计
+
+lazyload()  //第一次加载图片
+
+//对滚动监听并做节流处理
+window.addEventListioner('scroll', throttle(lazyload, 200))
+
+function lazyload() {
+    let viewHeight = document.documentElement.clientHeight //视口高度
+    let scrollTop = document.documentElement.scrollTop || document.body.scrollTop //滚动条卷去的高度
+    for(let i = count; i < imgs.length; i++) {
+        //元素已经出现在视口当中
+        if(img[i].offsetTop < scrollTop + viewHeight) {
+            if(img[i].getAttribute("src") !== "default.jpg") continue;
+            img[i].src = img[i].getAttribute("data-src");
+            count++
+        }
+    }
+}
+```
+
+### 方案二：getBoundingClientRect
+
+```javascript
+function lazyload() {
+  for(let i = count; i < img.length; i++) {
+    // 元素现在已经出现在视口中
+    if(img[i].getBoundingClientRect().top < document.documentElement.clientHeight) {
+      if(img[i].getAttribute("src") !== "default.jpg") continue
+      img[i].src = img[i].getAttribute("data-src")
+      count++
+    }
+  }
+}
+```
+
+### 方案三: IntersectionObserver
+
+这是浏览器内置的一个`API`，实现了`监听window的scroll事件`、`判断是否在视口中`以及`节流`三大功能。
+
+```js
+let img = document.document.getElementsByTagName("img");
+
+const observer = new IntersectionObserver(changes => {
+  //changes 是被观察的元素集合
+  for(let i = 0, len = changes.length; i < len; i++) {
+    let change = changes[i];
+    // 通过这个属性判断是否在视口中
+    if(change.isIntersecting) {
+      const imgElement = change.target;
+      imgElement.src = imgElement.getAttribute("data-src");
+      observer.unobserve(imgElement);
+    }
+  }
+})
+observer.observe(img);
+```
 

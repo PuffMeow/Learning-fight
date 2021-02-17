@@ -246,3 +246,29 @@ https://rescdn.qqmail.com/assets?files=xxx,xxx,xxx
 
 ### 洗牌算法
 
+
+
+
+
+### 爬虫在爬取页面前，需要对url列表进行标准化，实现一个处理url列表的函数-对缺少http前缀的url添加前缀，返回的url不能重复
+
+```
+例：["nodejs.org", "http://nodejs.org", "http://bytedance.com"] => ["http://nodejs.org", "http://bytedance.com"]  
+```
+
+```javascript
+function formaturl(urllist) {
+  let tempArr = []
+  urllist.forEach(item => {
+    if (!item.startsWith('http://')) {
+      item = 'http://' + item
+    }
+    tempArr.push(item)
+  })
+
+  return [...new Set(tempArr)]
+}
+
+console.log(formaturl(["nodejs.org", "http://nodejs.org", "http://bytedance.com"]))
+```
+

@@ -57,8 +57,6 @@ Vue2中实现双向绑定使用的是ES5中的`Object.defineProperty` ，但是�
 
 然后我们在控制台中输入 `obj.name = '王大锤'` ，可以看到页面立马发生了变化，此时我们就已经可以检测到name属性的实时变化了
 
-![1606483770092](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\1606483770092.png)
-
 而`Object.defineProperty`只能检测单个属性name的变化，如果对象里有更多的属性，则我们就需要做遍历和递归处理。
 
 Vue里对数据响应式的处理很复杂，远远不及Vue3的简洁，因为`Object.defineProperty`这个API不能监听整个对象，也不能监听到新增数据和删除数据(然后就有了$set和$delete)，所以达到这个需求就需要做很多处理。
@@ -148,8 +146,6 @@ methodsToPatch.forEach(function (method) {
 })
 ```
 
-
-
 #### Vue3
 
 看完Vue2中数据双向绑定的基本实现，我们再来看一下Vue3中数据的双向绑定。与Vue2不同，Vue3中使用的是ES6中的Proxy做代理，我们先来实现一下和Vue2一样的功能，看看以下代码，效果和Vue2实现完全一样
@@ -202,8 +198,6 @@ methodsToPatch.forEach(function (method) {
 
 </html>
 ```
-
-![1606484476893](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\1606484476893.png)
 
 从这里我们可以看到，`Proxy`并不是像`Object.defineProperty`那样只能对对象里的某个属性进行检测，而是对整个对象的属性变化都可以检测到，所以我们并不需要一个个去遍历属性再去进行监听，提高了效率。而且Proxy不会影响到原数据的值，而是返回了一个新的代理对象。
 
@@ -383,12 +377,12 @@ window.addEventListener('hashchange', () => {
 
 history接口有六种模式可以改变URL而不刷新页面
 
-- replaceState:替换原来的路径
-- pushState:使用新路径
-- popState:路径回退
-- go:向前或向后改变路径
-- forward:向前改变路径
-- back:向后改变路径
+- **replaceState:** 替换原来的路径
+- **pushState:** 使用新路径
+- **popState:** 路径回退
+- **go:** 向前或向后改变路径
+- **forward: **向前改变路径
+- **back:** 向后改变路径
 
 ```javascript
 window.addEventListener('popstate', historyChange)
@@ -409,3 +403,18 @@ function historyChange() {
 ```
 
 如果面试官问到我们Vue-router的原理的时候，我们只要能把它们的基本实现方式说出来就差不多了。
+
+### 说说Vue的几个watcher
+
+[computed watcher](https://juejin.cn/post/6844904120290131982)
+
+- 负责敦促视图更新的render-watcher
+- 执行敦促计算属性更新的computed-watcher
+- 用户注册的普通watcher（watch-api或watch属性）
+
+ComputedWatcher 和普通 Watcher 的区别：
+1. 用 lazy 为 true 标示为它是一个计算Watcher
+2. 计算Watcher的get和set是在初始化`(initComputed)`时经过` defineComputed() `方法重写了的
+3. 当它所依赖的属性发生改变时虽然也会调用`ComputedWatcher.update()`，但是因为它的lazy属性为true，所以只执行把dirty设置为true这一个操作，并不会像其它的Watcher一样执行queueWatcher()或者run()
+ 4. 当有用到这个`ComputedWatcher`的时候，例如视图渲染时调用了它时，才会触发`ComputedWatcher`的get，但又由于这个get在初始化时被重写了，其内部会判断dirty的值是否为true来决定是否需要执行evaluate()重新计算
+5. 因此才有了这么一句话：当计算属性所依赖的属性发生变化时并不会马上重新计算(只是将dirty设置为了true而已)，而是要等到其它地方读取这个计算属性的时候(会触发重写的get)时才重新计算，因此它具备懒计算特性。
