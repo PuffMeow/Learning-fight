@@ -418,3 +418,81 @@ ComputedWatcher 和普通 Watcher 的区别：
 3. 当它所依赖的属性发生改变时虽然也会调用`ComputedWatcher.update()`，但是因为它的lazy属性为true，所以只执行把dirty设置为true这一个操作，并不会像其它的Watcher一样执行queueWatcher()或者run()
  4. 当有用到这个`ComputedWatcher`的时候，例如视图渲染时调用了它时，才会触发`ComputedWatcher`的get，但又由于这个get在初始化时被重写了，其内部会判断dirty的值是否为true来决定是否需要执行evaluate()重新计算
 5. 因此才有了这么一句话：当计算属性所依赖的属性发生变化时并不会马上重新计算(只是将dirty设置为了true而已)，而是要等到其它地方读取这个计算属性的时候(会触发重写的get)时才重新计算，因此它具备懒计算特性。
+
+### $set和$delete
+
+$set主要是用来避开Vue不能侦听属性被添加的限制。我们为一个data里的对象obj添加了一个新属性name。Vue是得不到通知的，新增的属性也不是响应式。就像我们不能使用`array.length = 0`来清空数组一样
+
+```
+data: {
+	obj: {}
+}
+
+this.obj.name = '大锤'
+```
+
+对于数组中元素的添加，是通过`target.splice(key, 1, val)`把val设置到target中的时候，数组拦截器会侦测到target发生了变化，会自动把这个val转成响应式的。
+
+给对象添加一个新的key的时候，使用了`Object.defineReactive`将新增的属性转换成getter/setter形式。最后向target的依赖触发变化通知。
+
+$delete是用来解决`Object.defineReacttive`不能发现数据被删除而更新视图的问题。
+
+对于数组的话，直接使用`target.splice(key, 1)`删除就行，数组拦截器会自动向依赖发送通知。对于对象就使用delete删除，然后发送依赖变化通知就行。
+
+```
+const ob = (target).__ob__
+delete target[key]
+ob.dep.notify()
+```
+
+### 虚拟DOM（vnode）
+
+#### 介绍
+
+目前三大主流框架都是声明式操作DOM。通过描述状态和DOM之间的映射关系就可以将状态渲染成视图。由于DOM操作昂贵，频繁操作DOM会消耗很大的性能，状态变化往往只有几个节点发生变化，如果把所有DOM都删掉生成新DOM的话性能开销特别大，比如一个ul下有很多li，其中只有一个li发生了变化，如果用新的ul替换旧的ul，其实除了那个发生了变化的li之外其它的li都不需要渲染，所以只需要找到需要更新的地方，尽可能少的访问DOM就行了。
+
+虚拟DOM就是通过状态生成一个虚拟节点树，然后使用虚拟节点树进行渲染，渲染之前，使用新生成的虚拟节点树和上一次生成的虚拟节点树进行比较，只渲染不同的部分。
+
+虚拟DOM要做的就是找到新旧两个vnode不同的地方，然后根据比对结果操作DOM更新视图。
+
+#### 虚拟DOM的优缺点
+
+优点：
+
+- **保证性能下限:** 虚拟DOM可以经过diff找出最小差异,然后批量进行patch，这种操作虽然比不上手动优化，但是比起粗暴的DOM操作性能要好很多,因此虚拟DOM可以保证性能下限
+- **无需手动操作DOM:** 虚拟DOM的diff和patch都是在一次更新中自动进行的，我们无需手动操作DOM，极大提高开发效率
+- **跨平台:** 虚拟DOM本质上是JavaScript对象,而DOM与平台强相关,相比之下虚拟DOM可以进行更方便地跨平台操作,例如服务器渲染、移动端开发等等
+
+缺点：
+
+- **无法进行极致优化:** 在一些性能要求极高的应用中虚拟DOM无法进行针对性的极致优化，比如VScode采用直接手动操作DOM的方式进行极端的性能优化
+
+### Patch(Diff算法)
+
+DOM操作速度远远不如JS运算速度快，patch就是比对新旧两个vnode有哪些不同，找出需要更新的节点进行更新。在虚拟DOM上进行操作可以节省性能开销。
+
+#### patch过程
+
+是否有oldVnode，没有就创建vnode插入视图，有就判断oldVnode和node是否同一个节点，是的话就进行更详细的对比和更新，不是的话就使用vnode创建真实节点并插入到视图旧节点旁，然后删除旧节点
+
+#### 静态节点
+
+指的是一旦渲染到页面上后，无论以后状态怎么变化都不会发生变化的节点，比如p标签。遇到静态节点就跳过更新。
+
+### 子组件为啥不能修改父组件传递的Prop
+
+一个父组件不只有一个子组件，使用这份prop的不只你一个子组件，如果每个子组件都可以修改prop的话，拿将导致修改数据的源头不止一处，出现bug难以找到源头。如果要修改prop只能委托父组件去修改，保证数据源唯一。传入的prop如果是基本数据类型，子组件修改父组件的prop会警告，并且不能修改，如果是引用数据类型，那么是可以修改，组件对prop的监听是浅监听。
+
+### Vue的父组件和子组件生命周期执行顺序
+
+加载渲染过程：
+
+父beforeCreate -> 父created -> 父beforeMount -> 子beforeCreate -> 子created -> 子beforeMount -> 子mounted -> 父mounted
+
+更新过程：
+
+父beforeUpdate -> 子beforeUpdate -> 子updated -> 父updated
+
+销毁过程
+
+父beforeDestroy -> 子beforeDestroy -> 子destroyed -> 父destroyed

@@ -242,9 +242,26 @@ const dependencies = {
 https://rescdn.qqmail.com/assets?files=xxx,xxx,xxx
 ```
 
-
+这道题就是一棵树，把树画出来以后，然后就是层序遍历了，就能得到一个数组[page,A,B,C,D,E,F,F]
 
 ### 洗牌算法
+
+```javascript
+function shuffle(array) {
+  const length = array.length;
+  let cur = length - 1;
+  let random;
+  while (cur > -1) {
+    random = Math.floor(length * Math.random());
+    [array[cur], array[random]] = [array[random], array[cur]];
+    cur--;
+  }
+  return array;
+}
+
+let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+console.log(shuffle(arr))
+```
 
 
 
