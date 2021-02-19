@@ -34,7 +34,8 @@ console.log(parseUrl('www.test.com?query=123&type=0&name=大哥'))
 function template(str, obj) {
   if (!str.length || typeof obj !== "object") return
   Object.keys(obj).forEach(key => {
-    str = str.replace(/\$\{\s*\w*\s*\}/, obj[key]);
+    
+    str = str.replace(/\$\{.*?}/, obj[key]);
   });
   return str;
 }
@@ -189,13 +190,14 @@ class EventEmitter {
   }
 
   once(name, fn) {
-    const _once = () => {
-      fn.apply(this, arguments)
+    function _once(...args) {
+      fn.apply(this, args)
       this.off(name, _once)
     }
     this.listion(name, _once)
   }
 }
+
 
 const emitter = new EventEmitter()
 emitter.listion('test', () => console.log(1))
@@ -244,6 +246,41 @@ https://rescdn.qqmail.com/assets?files=xxx,xxx,xxx
 
 这道题就是一棵树，把树画出来以后，然后就是层序遍历了，就能得到一个数组[page,A,B,C,D,E,F,F]
 
+**这道题当初没做出来是因为没理解这是一棵树的层序遍历**
+
+```javascript
+// 按page,A,B,C,D,E,F,F的顺序保存到一个数组
+// https://rescdn.qqmail.com/assets?files=xxx,xxx,xxx
+let url = 'https://rescdn.qqmail.com/assets?files='
+
+function bfs(dependencies) {
+  if (!dependencies) return []
+  const quene = [dependencies]
+  const res = []
+  while (quene.length) {
+    const len = quene.length
+    for (let i = 0; i < len; i++) {
+      let node = quene.shift()
+      res.push(node.name)
+      if (node.dependencies && node.dependencies.length) {
+        for (let j = 0; j < node.dependencies.length; j++) {
+          quene.push(node.dependencies[j])
+        }
+      }
+    }
+  }
+  return res
+}
+// console.log(bfs(dependencies))
+const res = bfs(dependencies)
+let str = url + res.toString()
+console.log(str)
+//得到最后的结果
+//https://rescdn.qqmail.com/assets?files=page.js,A.js,B.js,C.js,D.js,E.js,F.js,F.js
+```
+
+
+
 ### 洗牌算法
 
 ```javascript
@@ -262,10 +299,6 @@ function shuffle(array) {
 let arr = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
 console.log(shuffle(arr))
 ```
-
-
-
-
 
 ### 爬虫在爬取页面前，需要对url列表进行标准化，实现一个处理url列表的函数-对缺少http前缀的url添加前缀，返回的url不能重复
 
