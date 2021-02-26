@@ -86,6 +86,76 @@ console.log(flat2(arr))
 console.log(flat3(arr))
 ```
 
+### 数组去重及对象数组去重
+
+```javascript
+function uniqe(arr) {
+  let res = []
+  for (let i of arr) {
+    if (!res.includes(i)) {
+      res.push(i)
+    }
+  }
+  return res
+}
+
+function uniqe2(arr) {
+  return arr.filter((item, index) => {
+    return arr.indexOf(item) === index
+  })
+}
+
+function uniqe3(arr) {
+  return [...new Set(arr)]
+}
+
+let arr = [1, 2, 1, 2, 1, 2, 1, 2, 3, 4, 5, 6]
+console.log(uniqe(arr))
+console.log(uniqe2(arr))
+console.log(uniqe3(arr))
+
+
+//对象数组去重
+const objArr = [
+  { id: 1, parentid: 0 },
+  { id: 2, parentid: 1 },
+  { id: 3, parentid: 1 },
+  { id: 3, parentid: 1 },
+  { id: 4, parentid: 2 },
+  { id: 5, parentid: 2 },
+  { id: 6, parentid: 0 },
+  { id: 6, parentid: 0 },
+  { id: 7, parentid: 0 },
+];
+
+function objUniqe(arr) {
+  const obj = {}
+  const res = []
+  for (let item of arr) {
+    if (!obj[item.id]) {
+      res.push(item)
+      obj[item.id] = true
+    }
+  }
+  return res
+}
+
+function objUniqe2(arr) {
+  const obj = {}
+  return arr.reduce((prev, item) => {
+    obj[item.id] ? '' : obj[item.id] = true && prev.push(item)
+    return prev
+  }, [])
+}
+
+console.log(objUniqe(objArr))
+console.log(objUniqe2(objArr))
+```
+
+
+
+
+
 ### 从m到n区间，能被k整除的数的个数
 
 要求优化，蚂蚁金服笔试题，笔试的时候这里没写出来
@@ -322,3 +392,50 @@ function formaturl(urllist) {
 console.log(formaturl(["nodejs.org", "http://nodejs.org", "http://bytedance.com"]))
 ```
 
+### 大数相加
+
+```javascript
+/**
+ * @param {string} num1
+ * @param {string} num2
+ * @return {string}
+ */
+
+// '10086'
+// '12345'
+var addStrings = function (num1, num2) {
+    if (num1 === '0') return num2
+    if (num2 === '0') return num1
+    let len = Math.abs(num1.length - num2.length)
+    //先在前面补0
+    if (num1.length < num2.length) {
+        for (let i = 0; i < len; i++) {
+            num1 = '0' + num1
+        }
+    } else {
+        for (let i = 0; i < len; i++) {
+            num2 = '0' + num2
+        }
+    }
+
+    let up = 0, res = ''
+    let i = num1.length - 1
+    let j = num2.length - 1
+    while (i >= 0 || j >= 0) {
+        let num = (+num1[i]) + (+num2[j])
+        if (up) num += up
+        if (num > 9) {
+            up = Math.floor(num / 10)
+            let temp = num % 10
+            res += temp
+        } else {
+            up = 0
+            res += num
+        }
+        i--
+        j--
+    }
+    res = res.split('').reverse().join('')
+    return up === 1 ? 1 + res : res
+};
+```
