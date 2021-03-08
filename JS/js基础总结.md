@@ -464,3 +464,6 @@ function Sub(name,age) {
 inherit(Sub, Super)  //实现了继承
 ```
 
+## oninput和onchange的区别
+
+oninput是在输入(元素或值发生改变)的时候立刻触发事件，onchange是在失去焦点的时候触发事件
