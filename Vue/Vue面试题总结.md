@@ -402,6 +402,8 @@ function historyChange() {
 }
 ```
 
+该两种方式去改变URL都不会去刷新页面。history模式本质上是用类似于一种栈的结构去存取路由，然后可以push和pop去操纵历史记录。
+
 如果面试官问到我们Vue-router的原理的时候，我们只要能把它们的基本实现方式说出来就差不多了。
 
 ### 说说Vue的几个watcher
