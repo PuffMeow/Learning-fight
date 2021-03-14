@@ -34,8 +34,7 @@ console.log(parseUrl('www.test.com?query=123&type=0&name=大哥'))
 function template(str, obj) {
   if (!str.length || typeof obj !== "object") return
   Object.keys(obj).forEach(key => {
-    
-    str = str.replace(/\$\{.*?}/, obj[key]);
+    str = str.replace(/\${.*?}/, obj[key]);
   });
   return str;
 }
@@ -177,7 +176,7 @@ function num(m, n, k) {
 
 ### 实现Promise.all
 
-网易有道的题(那时候写有bug)
+网易有道
 
 ```javascript
 function myAll(promises) {
@@ -204,10 +203,12 @@ function myAll(promises) {
 ```javascript
 function curry(fn, currArgs) {
   return function (...args) {
-    currArgs && args = args.concat(currArgs);
+    currArgs && (args = args.concat(currArgs))
+      
     if (args.length < fn.length) {
       return curry(fn, args);
     }
+      
     return fn.apply(this, args);
   }
 }
@@ -218,6 +219,7 @@ function sum(a, b, c, d, e) {
 
 const fn = curry(sum);
 
+fn(1, 2)(3)(4)(5)  //15
 fn(1, 2, 3, 4, 5); // 15
 fn(1, 2)(3)(4)(5); // 15
 fn(1)(2, 3, 4)(5); // 15
@@ -358,7 +360,7 @@ function shuffle(array) {
   const length = array.length;
   let cur = length - 1;
   let random;
-  while (cur > -1) {
+  while (cur >= 0) {
     random = Math.floor(length * Math.random());
     [array[cur], array[random]] = [array[random], array[cur]];
     cur--;
