@@ -141,7 +141,6 @@ ReactDOM.render(
     [callback]
 )
 
-
 //调用例子
 const rootElement = document.getElementById("root");
 ReactDOM.render(<App />, rootElement);
@@ -221,7 +220,6 @@ React 组件会根据 `shouldComponentUpdate` 的返回值，来决定是否执�
 
 ```js
 static getDerivedStateFromProps(props, state) {
-  
   //记得return 一个东西，不需要return什么的时候就return null
   return {
     
@@ -261,7 +259,7 @@ componentDidUpdate(prevProps, prevState, valueFromSnapshot) {
 
 **Fiber 会使原本同步的渲染过程变成异步的**。**Fiber 会将一个大的更新任务拆解为许多个小任务**。每当执行完一个小任务时，**渲染线程都会把主线程交回去**，看看有没有优先级更高的工作要处理，确保不会出现其他任务被“饿死”的情况，进而避免同步渲染带来的卡顿。
 
-fiber特性:
+Fiber特性:
 
 - 任务拆解
 - 可打断
@@ -855,8 +853,6 @@ dispatchEvent: function (topLevelType, nativeEvent) {
 ```
 
 isBatchingUpdates 这个变量，在 React 的生命周期函数以及合成事件执行前，已经被 React 悄悄修改为了 true，这时我们所做的 setState 操作自然不会立即生效。当函数执行完毕后，事务的 close 方法会再把 isBatchingUpdates 改为 false。
-
-
 
 再看之前的代码，那么问题我们就能看出来。在 isBatchingUpdates 的约束下，setState 只能是异步的。
 
