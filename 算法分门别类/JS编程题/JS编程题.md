@@ -34,8 +34,7 @@ console.log(parseUrl('www.test.com?query=123&type=0&name=大哥'))
 function template(str, obj) {
   if (!str.length || typeof obj !== "object") return
   Object.keys(obj).forEach(key => {
-    
-    str = str.replace(/\$\{.*?}/, obj[key]);
+    str = str.replace(/\${.*?}/, obj[key]);
   });
   return str;
 }
@@ -177,7 +176,7 @@ function num(m, n, k) {
 
 ### 实现Promise.all
 
-网易有道的题(那时候写有bug)
+网易有道
 
 ```javascript
 function myAll(promises) {
@@ -204,10 +203,12 @@ function myAll(promises) {
 ```javascript
 function curry(fn, currArgs) {
   return function (...args) {
-    currArgs && args = args.concat(currArgs);
+    currArgs && (args = args.concat(currArgs))
+      
     if (args.length < fn.length) {
       return curry(fn, args);
     }
+      
     return fn.apply(this, args);
   }
 }
@@ -218,6 +219,7 @@ function sum(a, b, c, d, e) {
 
 const fn = curry(sum);
 
+fn(1, 2)(3)(4)(5)  //15
 fn(1, 2, 3, 4, 5); // 15
 fn(1, 2)(3)(4)(5); // 15
 fn(1)(2, 3, 4)(5); // 15
@@ -358,7 +360,7 @@ function shuffle(array) {
   const length = array.length;
   let cur = length - 1;
   let random;
-  while (cur > -1) {
+  while (cur >= 0) {
     random = Math.floor(length * Math.random());
     [array[cur], array[random]] = [array[random], array[cur]];
     cur--;
@@ -406,17 +408,10 @@ console.log(formaturl(["nodejs.org", "http://nodejs.org", "http://bytedance.com"
 var addStrings = function (num1, num2) {
     if (num1 === '0') return num2
     if (num2 === '0') return num1
-    let len = Math.abs(num1.length - num2.length)
+    let len = Math.max(num1.length, num2.length)
     //先在前面补0
-    if (num1.length < num2.length) {
-        for (let i = 0; i < len; i++) {
-            num1 = '0' + num1
-        }
-    } else {
-        for (let i = 0; i < len; i++) {
-            num2 = '0' + num2
-        }
-    }
+    num1 = num1.padStart(len, 0)
+    num2 = num2.padStart(len, 0)
 
     let up = 0, res = ''
     let i = num1.length - 1
@@ -439,3 +434,32 @@ var addStrings = function (num1, num2) {
     return up === 1 ? 1 + res : res
 };
 ```
+
+### 字符串转base64
+
+```js
+function encode(str){
+    // 对字符串进行编码
+    let encode = encodeURI(str);
+    // 对编码的字符串转化base64
+    let base64 = btoa(encode);
+    return base64;
+}
+
+// base64转字符串
+function decode(base64){
+    // 对base64转编码
+    let decode = atob(base64);
+    // 编码转字符串
+    let str = decodeURI(decode);
+    return str;
+}
+
+//获取userAgent转成base64后并找出里面出现次数最多的字符
+let base64 = enCode(navigator.userAgent)
+const map = new Map()
+for(let char of base64) {
+    ...
+}
+```
+

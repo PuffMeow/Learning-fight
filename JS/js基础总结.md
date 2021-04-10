@@ -2,7 +2,7 @@
 
 #### defer和async的区别
 
-有`derer`的话，加载后续文档元素的过程将和 Js 的加载并行进行（异步），但是Js的执行要在所有元素解析完成之后，`DOMContentLoaded` 事件触发之前完成，并且多个defer会按照顺序进行加载。而`async`会在Js下载完成之后立即执行，哪个先加载好先执行哪个。
+有`derer`的话，加载后续文档元素的过程将和 Js 的加载并行进行（异步），但是Js的执行要在所有元素解析完成之后，`DOMContentLoaded` 事件触发之前完成，并且多个defer会按照顺序进行加载。而`async`会在Js下载完成之后立即执行，哪个先加载好先执行哪个。如果需要按顺序加载JS文件，并且这些文件有依赖关系，则使用defer，如果载入的JS文件没有依赖关系则使用async。
 
 #### **不论是内联还是外链js都会阻塞后续dom的解析和渲染**
 
@@ -36,107 +36,29 @@
 - require 同步导入， import属于异步导入
 - require 是值拷贝，导出值的变化不会影响导入值； import 指向内存地址，导入值会随导出值而变化
 
-### 从URL输入到页面显示经过了什么
-
-1.在浏览器地址栏输入`URL`
-
-2.浏览器查看缓存，如果请求资源在缓存中并且新鲜，跳转到转码步骤 
-
-- 2.1 如果资源未缓存，发起新请求
-- 2.2 如果已缓存，检验是否足够新鲜，足够新鲜直接提供给客户端，否则与服务器进行验证。
-- 2.3 检验新鲜通常有两个HTTP头进行控制 `Expires` 和 `Cache-Control`： 
-  - 2.3.1 `HTTP1.0`提供`Expires`，值为一个绝对时间表示缓存新鲜日期
-  - 2.3.2 `HTTP1.1`增加了`Cache-Control: max-age=`,值为以秒为单位的最大新鲜时间
-
-3.浏览器解析`URL`获取协议，主机，端口，`path`
-
-4.浏览器组装一个`HTTP（GET）`请求报文
-
-5.浏览器获取主机`ip地址`
-
-- 5.1 浏览器缓存
-- 5.2 本机缓存
-- 5.3 hosts文件
-- 5.4 路由器缓存
-- 5.5 ISP DNS缓存
-- 5.6 DNS递归查询（可能存在负载均衡导致每次IP不一致）
-
-6.打开一个`socket` `IP地址` `三次握手`
-
-- 6.1 客户端发送一个`TCP的SYN=1，Seq=X`的包到服务器端口
-- 6.2 服务器发回`SYN=1，ACK=x+1,Seq=Y`的相应包
-- 6.3 客户端发送`ACK=Y+1，Seq=z`
-
-7.`TCP`链接建立后发送`HTTP`请求
-
-8.服务器接收请求后解析，将请求转发到服务器程序，如虚拟主机使用`HTTP Host`头部判断请求的服务程序
-
-9.服务器检测`HTTP`请求头是否包含缓存验证信息，如果验证缓存新鲜，返回304等对应状态
-
-10.出合理程序读取完整请求并准备`HTTP`相应，可能需要查询数据库等操作
-
-11.服务器将相应报文通过`TCP`链接发送回浏览器
-
-12.四次挥手
-
-- 12.1 主动方发送`Fin=1,ACK=z,Seq=x`报文
-- 12.2 被动方发送`ACK=X+1,Seq=Y`报文
-- 12.3 被动方发送`Fin=1,ACK=X,Seq=Y`报文
-- 12.4 主动方发送`ACK=Y,Seq=x `报文
-
-13.浏览器检查相应状态码
-
-14.如果资源可缓存，进行缓存
-
-15.对相应进行解码
-
-16.根据资源类型决定如何处理
-
-17.解析`HTML`文档，构建`DOM`树，下载资源，构建`CSSOM`树，执行js脚本，这些操作没有严格的先后顺序
-
-18.构建DOM树： 
-
-- 18.1 `Tokenizing`：语法分析根据HTML规范将字符流解析为标记
-- 18.2 `Lexing`：词法分析将标记转换为对象并定义属性和规则
-- 18.3 `DOM construction`：根据HTML标记关系将对象组成DOM树
-
-19.解析过程中遇到图片、样式表、js文件，启动下载
-
-20.构建`CSSOM`
-
-- 20.1 `Tokenizing`：字符流转换为标记流
-- 20.2 `Node`：根据标记创建节点
-- 20.3 `CSSOM`：节点创建CSSOM树
-
-- 21.1 从`DOM树`的根节点遍历所有可见节点，不可见节点包括：1） `script , meta `这样本身不可见的标签。2)被css隐藏的节点，如 display: none
-- 21.2 对每一个可见节点，找到恰当的`CSSOM`规则并应用
-- 21.3 发布可视节点的内容和计算样式
-
-22.js解析如下 
-
-- 22.1 浏览器创建`Document对象`并解析`HTML`，将解析到的元素和文本节点添加到文档中，此时`document.readystate为loading`
-- 22.2 HTML解析器遇到没有`async和defer的script时`，将他们添加到文档中，然后执行行内或外部脚本。这些脚本会同步执行，并且在脚本下载和执行时解析器会暂停。这样就可以用`document.write()`把文本插入到输入流中。同步脚本经常简单定义函数和注册事件处理程序，他们可以遍历和操作script和他们之前的文档内容
-- 22.3 当解析器遇到设置了`async属性的script`时，开始下载脚本并继续解析文档。脚本会在它下载完成后尽快执行，但是解析器不会停下来等它下载。异步脚本禁止使用`document.write()`，它们可以访问自己script和之前的文档元素
-- 22.4 当文档完成解析，`document.readState变成interactive`
-- 22.5 所有`defer脚本`会按照在文档出现的顺序执行，延迟脚本能访问完整文档树，禁止使用`document.write()`
-- 22.6 浏览器在`Document`对象上触发`DOMContentLoaded事件`
-- 22.7 此时文档完全解析完成，浏览器可能还在等待如图片等内容加载，等这些内容完成载入并且所有异步脚本完成载入和执行，`document.readState变为complete，window触发load事件`
-
-23.CSSOM树和DOM树合成render树，然后渲染，进行复合图层的合成，GPU绘制，这其中还会发生重排和重绘，会影响页面的性能
-
-23.显示页面（HTML解析过程中会逐步显示页面）
-
 ## 说下闭包?
 
 闭包是指有权访问另一个函数作用域中的变量的函数。利用闭包可以突破作用域链的限制，比如在一个函数里声明了一个变量和一个函数，里面这个函数可以访问到外面函数的变量。下面这个就是最简单的闭包实现，另外就是我们常用的`防抖和节流`其实就是闭包的应用。
 
-```javascript
+```js
 function out() {
     let i = 0
     function inner() {
         let j = i
     }
 }
+
+const addOne = (function() {
+    let count = 0
+    return {
+        inc: function() {
+            return count++
+        }
+    }
+})()
+
+addOne.inc() //1
+addOne.inc() //2
 ```
 
 闭包具有以下特点：
@@ -145,6 +67,10 @@ function out() {
 - 可以实现私有封装和缓存
 - 参数和变量不会被垃圾回收
 - 使用不当会造成内存泄漏
+
+内存泄漏是指程序中己动态分配的堆内存由于某种原因程序未释放或无法释放，造成系统内存的浪费，导致程序运行速度减慢甚至系统崩溃等严重后果。
+
+由于闭包会使得函数中的变量都被保存在内存中，内存消耗很大，所以不能滥用闭包，否则会造成网页的性能问题，在IE中可能导致内存泄露。解决方法是，在退出函数之前，将不使用的局部变量全部删除。
 
 ## forEach怎么跳出？
 
@@ -464,6 +390,7 @@ function Sub(name,age) {
 inherit(Sub, Super)  //实现了继承
 ```
 
+<<<<<<< HEAD
 ## 事件委托
 
 #### 原理
@@ -524,3 +451,97 @@ ps: 不支持冒泡的事件
 2. 层级过多，冒泡过程中，可能会被某层阻止掉。
 3. 理论上委托会导致浏览器频繁调用处理函数，虽然很可能不需要处理。所以建议就近委托，比如在table上代理td，而不是在document上代理td。
 4. 把所有事件都用代理就可能会出现事件误判。比如，在document中代理了所有button的click事件，另外的人在引用改js时，可能不知道，造成单击button触发了两个click事件。
+=======
+## oninput和onchange的区别
+
+oninput是在输入(元素或值发生改变)的时候立刻触发事件，onchange是在失去焦点的时候触发事件
+
+## JS动画和CSS动画的区别
+
+CSS动画
+
+ 优点：
+
+- 浏览器可以对动画进行优化。
+- 代码相对简单,性能调优方向固定
+- 对于帧速表现不好的低版本浏览器，CSS3可以做到自然降级，而JS则需要撰写额外代码
+
+ 缺点：
+
+- 运行过程控制较弱,无法附加事件绑定回调函数。CSS动画只能暂停,不能在动画中寻找一个特定的时间点，不能在半路反转动画，不能变换时间尺度，不能在特定的位置添加回调函数或是绑定回放事件,无进度报告
+-   代码冗长。想用 CSS 实现稍微复杂一点动画,最后CSS代码都会变得非常笨重。
+
+JS动画
+
+ 优点：
+
+- JavaScript动画控制能力很强, 可以在动画播放过程中对动画进行控制：开始、暂停、回放、终止、取消都是可以做到的。
+- 动画效果比css3动画丰富,有些动画效果，比如曲线运动,冲击闪烁,视差滚动效果，只有JavaScript动画才能完成
+- CSS3有兼容性问题，而JS大多时候没有兼容性问题
+
+缺点：
+
+- JavaScript在浏览器的主线程中运行，而主线程中还有其它需要运行的JavaScript脚本、样式计算、布局、绘制任务等,对其干扰导致线程可能出现阻塞，从而造成丢帧的情况。
+- 代码的复杂度高于CSS动画
+
+小结:
+ 如果动画只是简单的状态切换，不需要中间过程控制，在这种情况下，css动画是优选方案。
+ 它可以让你将动画逻辑放在样式文件里面，而不会让你的页面充斥 Javascript 库。
+ 然而如果你在设计很复杂的富客户端界面或者在开发一个有着复杂UI状态的 APP。那么你应该使用js动画，这样你的动画可以保持高效，并且你的工作流也更可控。
+ 所以，在实现一些小的交互动效的时候，就多考虑考虑CSS动画。对于一些复杂控制的动画，使用JS比较可靠。
+
+### JSON.stringify()实现
+
+```js
+function jsonStringify(data) {
+  let type = typeof data;
+
+  if(type !== 'object') {
+    let result = data;
+    //data 可能是基础数据类型的情况在这里处理
+    if (Number.isNaN(data) || data === Infinity) {
+       //NaN 和 Infinity 序列化返回 "null"
+       result = "null";
+    } else if (type === 'function' || type === 'undefined' || type === 'symbol') {
+      // 由于 function 序列化返回 undefined，因此和 undefined、symbol 一起处理
+       return undefined;
+    } else if (type === 'string') {
+       result = '"' + data + '"';
+    }
+    return String(result);
+  } else if (type === 'object') {
+     if (data === null) {
+        return "null"  // 第01讲有讲过 typeof null 为'object'的特殊情况
+     } else if (data.toJSON && typeof data.toJSON === 'function') {
+        return jsonStringify(data.toJSON());
+     } else if (data instanceof Array) {
+        let result = [];
+        //如果是数组，那么数组里面的每一项类型又有可能是多样的
+        data.forEach((item, index) => {
+        if (typeof item === 'undefined' || typeof item === 'function' || typeof item === 'symbol') {
+               result[index] = "null";
+           } else {
+               result[index] = jsonStringify(item);
+           }
+         });
+         result = "[" + result + "]";
+         return result.replace(/'/g, '"');
+      } else {
+         // 处理普通对象
+         let result = [];
+         Object.keys(data).forEach((item, index) => {
+            if (typeof item !== 'symbol') {
+              //key 如果是 symbol 对象，忽略
+              if (data[item] !== undefined && typeof data[item] !== 'function' && typeof data[item] !== 'symbol') {
+                //键值如果是 undefined、function、symbol 为属性值，忽略
+                result.push('"' + item + '"' + ":" + jsonStringify(data[item]));
+              }
+            }
+         });
+         return ("{" + result + "}").replace(/'/g, '"');
+        }
+    }
+}
+```
+
+>>>>>>> ffb3a45b9177b3e748a806f09eb45cd83d3623ea
