@@ -23,7 +23,7 @@
 
   这个API是监听整个对象，所以能对属性的增加和删除都可以检测到。但是Proxy这个API也不能监听到内部深层的对象变化，所以Vue3.0的处理方式是在getter中递归响应式。这样的好处就是只有真正访问到内部对象的时候才会变成响应式，而不是一股脑就去做递归，很大程度上提高了性能。
 
-- 编译优化：Vue2.0的执行过程是这样的`new Vue -> init -> mount -> complie -> render -> vnode -> patch -> DOM`，响应式的过程发生在init阶段。除了数据劫持的优化，Vue3.0在编译阶段也进行了优化，实现了运行时patch过程的优化。Vue2数据更新并触发重新渲染的粒度是组件级的。Vue3通过在编译阶段对静态模板的分析，编译生成了Block tree（将模板基于动态节点指令切割的嵌套区块，每个区块内部节点结构固定，每个区块只需要以一个Array来追踪自身包含的动态节点）。借助Block tree，vue将vnode更新性能由模板整体大小相关提升到了跟动态内容数量相关。在编译阶段嗐对Slot进行了编译优化，事件侦听函数的缓存优化，并在运行时重写了diff算法。
+- 编译优化：Vue2.0的执行过程是这样的`new Vue -> init -> mount -> complie -> render -> vnode -> patch -> DOM`，响应式的过程发生在init阶段。除了数据劫持的优化，Vue3.0在编译阶段也进行了优化，实现了运行时patch过程的优化。Vue2数据更新并触发重新渲染的粒度是组件级的。Vue3通过在编译阶段对静态模板的分析，编译生成了Block tree（将模板基于动态节点指令切割的嵌套区块，每个区块内部节点结构固定，每个区块只需要以一个Array来追踪自身包含的动态节点）。借助Block tree，vue将vnode更新性能由模板整体大小相关提升到了跟动态内容数量相关。在编译阶段还对Slot进行了编译优化，事件侦听函数的缓存优化，并在运行时重写了diff算法。
 
 - 语法优化：vue2使用了Options API(methods、computed、data、props、created、mounted、updated等)这些不同的的选项分类，每个option都有自己的内容，如果需要修改一段上下文相关的逻辑，当组件大了以后，就需要在单个文件中不断上下切换和寻找)。Vue3提供了composition API(把某个逻辑关注点相关的代码全放到一个函数里，当要修改一个功能的时候，就不需要在文件中上下切换)
 
@@ -61,170 +61,92 @@ Vue3中根组件通过createVNode函数渲染
 
 ```javascript
 const setupRenderEffect = (instance, initialVNode, container, anchor, parentSuspense, isSVG, optimized) => {
-
   // 创建响应式的副作用渲染函数
-
   instance.update = effect(function componentEffect() {
-
     if (!instance.isMounted) {
-
       // 渲染组件
-
     }
-
     else {
-
       // 更新组件
-
       let { next, vnode } = instance
-
       // next 表示新的组件 vnode
-
       if (next) {
-
         // 更新组件 vnode 节点信息
-
         updateComponentPreRender(instance, next, optimized)
-
       }
-
       else {
-
         next = vnode
-
       }
-
       // 渲染新的子树 vnode
-
       const nextTree = renderComponentRoot(instance)
-
       // 缓存旧的子树 vnode
-
       const prevTree = instance.subTree
-
       // 更新子树 vnode
-
       instance.subTree = nextTree
-
       // 组件更新核心逻辑，根据新旧子树 vnode 做 patch
-
       patch(prevTree, nextTree,
-
         // 如果在 teleport 组件中父节点可能已经改变，所以容器直接找旧树 DOM 元素的父节点
-
         hostParentNode(prevTree.el),
-
         // 参考节点在 fragment 的情况可能改变，所以直接找旧树 DOM 元素的下一个节点
-
         getNextHostNode(prevTree),
-
         instance,
-
         parentSuspense,
-
         isSVG)
-
       // 缓存更新后的 DOM 节点
-
       next.el = nextTree.el
-
     }
-
   }, prodEffectOptions)
-
 }
-
 ```
 
 ### Patch过程
 
 ```js
 const patch = (n1, n2, container, anchor = null, parentComponent = null, parentSuspense = null, isSVG = false, optimized = false) => {
-
   // 如果存在新旧节点, 且新旧节点类型不同，则销毁旧节点
-
   if (n1 && !isSameVNodeType(n1, n2)) {
-
     anchor = getNextHostNode(n1)
-
     unmount(n1, parentComponent, parentSuspense, true)
-
     // n1 设置为 null 保证后续都走 mount 逻辑
-
     n1 = null
-
   }
-
+    
   const { type, shapeFlag } = n2
-
   switch (type) {
-
     case Text:
-
       // 处理文本节点
-
       break
-
     case Comment:
-
       // 处理注释节点
-
       break
-
     case Static:
-
       // 处理静态节点
-
       break
-
     case Fragment:
-
       // 处理 Fragment 元素
-
       break
-
     default:
-
       if (shapeFlag & 1 /* ELEMENT */) {
-
         // 处理普通 DOM 元素
-
         processElement(n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, optimized)
-
       }
-
       else if (shapeFlag & 6 /* COMPONENT */) {
-
         // 处理组件
-
         processComponent(n1, n2, container, anchor, parentComponent, parentSuspense, isSVG, optimized)
-
       }
-
       else if (shapeFlag & 64 /* TELEPORT */) {
-
         // 处理 TELEPORT
-
       }
-
       else if (shapeFlag & 128 /* SUSPENSE */) {
-
         // 处理 SUSPENSE
-
       }
-
   }
-
 }
 
 function isSameVNodeType (n1, n2) {
-
   // n1 和 n2 节点的 type 和 key 都相同，才是相同节点
-
   return n1.type === n2.type && n1.key === n2.key
-
 }
-
 ```
 
 在这个过程中，首先判断新旧节点是否是相同的 vnode 类型，如果不同，比如一个 div 更新成一个 ul，那么最简单的操作就是删除旧的 div 节点，再去挂载新的 ul 节点。
