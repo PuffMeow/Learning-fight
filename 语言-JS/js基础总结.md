@@ -390,7 +390,7 @@ function Sub(name,age) {
 inherit(Sub, Super)  //实现了继承
 ```
 
-<<<<<<< HEAD
+
 ## 事件委托
 
 #### 原理
@@ -490,7 +490,7 @@ JS动画
  然而如果你在设计很复杂的富客户端界面或者在开发一个有着复杂UI状态的 APP。那么你应该使用js动画，这样你的动画可以保持高效，并且你的工作流也更可控。
  所以，在实现一些小的交互动效的时候，就多考虑考虑CSS动画。对于一些复杂控制的动画，使用JS比较可靠。
 
-### JSON.stringify()实现
+## JSON.stringify()实现
 
 ```js
 function jsonStringify(data) {
@@ -543,3 +543,11 @@ function jsonStringify(data) {
     }
 }
 ```
+
+### 正则表达式字符串转驼峰
+
+```js
+'get-element-by-id'.replace(/-(\w)/g, ($,$1)=> $1.toUpperCase())
+//"getElementById"
+```
+
