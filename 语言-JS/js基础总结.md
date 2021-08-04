@@ -1,4 +1,36 @@
-## JS解析
+### 函数和var的变量提升
+
+**什么是变量提升**？
+JavaScript 中，函数及变量的声明都将被提升到函数的最顶部。
+JavaScript 中，变量可以在使用后声明，也就是变量可以先使用再声明。
+
+- **函数提升只会提升函数声明，而不会提升函数表达式**
+- **函数声明的变量提升比var的变量提升优先级要高**
+
+### var、let 、const区别
+
+- **var声明变量存在变量提升（将变量提升到当前作用域的顶部，为undefined），let和const不存在变量提升。**
+- **let、const都是块级局部变量，if语句和for语句里面的{ }也属于块作用域。** 
+
+- **const声明的变量不可修改，但是对象和数组里的属性可以修改**
+- **同一作用域下let和const不能声明同名变量，会报错。而var可以，后一个变量会覆盖前一个变量。**
+
+### function的length表示什么?参数长度包括默认值?
+
+```js
+function a() {}
+a.length = 0
+
+function b(a,b,c) {}
+b.length = 3
+
+function c(a = 1, b = 2, c = 3) {}
+c.length = 0
+```
+
+
+
+### JS解析
 
 #### defer和async的区别
 
@@ -12,12 +44,12 @@
 
 对于一个HTML文档来说，不管是内联还是外链的css，都会阻碍后续的dom渲染，但是不会阻碍后续dom的解析。如果把css文件引用放在HTML文档的底部，浏览器为了防止无样式内容闪烁，会在css文件下载并解析完毕之前什么都不显示，这也就会造成白屏现象。虽然css解析也会阻塞后续dom的渲染，但是在解析css的同时也在解析dom，所以等到css解析完毕就会逐步的渲染页面了。
 
-## document.ready和document.onload的区别
+### document.ready和document.onload的区别
 
 - ready：表示DOM结构已经加载完成（不包含图片等非文字媒体文件）执行先于onload
 - onload：指示页面包含图片等文件在内的所有元素都加载完成
 
-## JS代码如何执行
+### JS代码如何执行
 
 **预解析**：检查语法错误但不生成AST
 
@@ -27,7 +59,7 @@
 
 **生成机器码**：优化编译器(Turbofan)将字节码转换成优化过的机器码，此外在逐行执行字节码的过程中，如果一段代码经常被执行，那么V8会将这段代码直接转换成机器码保存起来，下一次执行就不必经过字节码，优化了执行速度
 
-## CommonJS、ES module？
+### CommonJS、ES module？
 
 - `CommonJS`是服务器端模块的规范，Node.js 采用了这个规范。CommonJS 规范加载模块是同步的，也就是说，只有加载完成，才能执行后面的操作，在浏览器中会出现堵塞的情况。通过对module.exports 或exports的属性赋值来达到暴露模块对象。**CommonJS在运行时加载：即在输入时是先加载整个模块，生成一个对象，然后再从这个对象上面读取方法**
 - ES6的导入导出是官方的实现，`export导出，import / import default导入`。**import在编译时加载：ES6 模块不是对象，而是通过 export 命令显式指定输出的代码。在import时可以指定加载某个输出值，而不是加载整个模块**，只有**ES module可以静态分析，实现Tree-shaking**
@@ -36,7 +68,7 @@
 - require 同步导入， import属于异步导入
 - require 是值拷贝，导出值的变化不会影响导入值； import 指向内存地址，导入值会随导出值而变化
 
-## 说下闭包?
+### 说下闭包?
 
 闭包是指有权访问另一个函数作用域中的变量的函数。利用闭包可以突破作用域链的限制，比如在一个函数里声明了一个变量和一个函数，里面这个函数可以访问到外面函数的变量。下面这个就是最简单的闭包实现，另外就是我们常用的`防抖和节流`其实就是闭包的应用。
 
@@ -72,7 +104,7 @@ addOne.inc() //2
 
 由于闭包会使得函数中的变量都被保存在内存中，内存消耗很大，所以不能滥用闭包，否则会造成网页的性能问题，在IE中可能导致内存泄露。解决方法是，在退出函数之前，将不使用的局部变量全部删除。
 
-## forEach怎么跳出？
+### forEach怎么跳出？
 
 ```javascript
 try {
@@ -92,7 +124,7 @@ try {
 
 如果按正常使用`forEach`的话会遍历完所有元素才能结束循环
 
-## 说一下Service Worker？
+### 说一下Service Worker？
 
 `service worker`其实就跟PWA挂钩，`service worker`做为PWA的核心技术之一，多年来一直被Google大力推广 。PWA就是渐进式web应用 **(Progressive Web App)** ，说简单点就是可以做离线应用了。
 
@@ -108,7 +140,7 @@ Js是单线程的，随着业务的复杂化，开发者在用Js来做一些复�
 -  可以访问cache和indexDB 
 -  支持推送 
 
-## 知道MutationObserver吗？
+### 知道MutationObserver吗？
 
 `MutationObserver`翻译过来就是变动观察器[参考详情](https://developer.mozilla.org/zh-cn/docs/web/api/mutationobserver)，用来观察页面node节点变化的。
 
@@ -143,9 +175,7 @@ observer.observe(targetNode, config);
 observer.disconnect();
 ```
 
-
-
-## 说下async和await的实现原理？
+### 说下async和await的实现原理？
 
 这两个玩意是`ES2017引入`的，其实它们就是 `Generator` 函数的语法糖 ， `async`函数就是将 `Generator` 函数的星号（`*`）替换成`async`，将`yield`替换成`await` 。 `async`的实现原理，它的内部就是`Promise和Generator`的封装。
 
@@ -194,7 +224,7 @@ function fn(args) {
 }
 ```
 
-## 浏览器的解析渲染原理以及JS、CSS阻塞问题分析
+### 浏览器的解析渲染原理以及JS、CSS阻塞问题分析
 
 https://blog.csdn.net/liu_yunzhao/article/details/91550704
 
@@ -205,9 +235,7 @@ https://blog.csdn.net/liu_yunzhao/article/details/91550704
 
 **当遇到CSS元素时**：也会开启异步线程，去下载构建CSS规则树，但同时也会继续构建后面的DOM树，也就是说DOM解析和CSS解析可以同时进行，但如果后面遇到JS元素，则会阻塞JS引擎线程执行，后面DOM树解析不受影响。
 
-
-
-## 实现图片懒加载
+### 实现图片懒加载
 
 图片占位符
 
@@ -215,7 +243,7 @@ https://blog.csdn.net/liu_yunzhao/article/details/91550704
 <img src="default.jpg" data-src="http://xxx/target.jpg">
 ```
 
-### 方案一：使用clientHeight、scrollTop 和 offsetTop
+#### 方案一：使用clientHeight、scrollTop 和 offsetTop
 
 ```javascript
 let imgs = document.getElementsByTagName("img")
@@ -240,7 +268,7 @@ function lazyload() {
 }
 ```
 
-### 方案二：getBoundingClientRect
+#### 方案二：getBoundingClientRect
 
 ```javascript
 function lazyload() {
@@ -255,7 +283,7 @@ function lazyload() {
 }
 ```
 
-### 方案三: IntersectionObserver
+#### 方案三: IntersectionObserver
 
 这是浏览器内置的一个`API`，实现了`监听window的scroll事件`、`判断是否在视口中`以及`节流`三大功能。
 
@@ -277,7 +305,7 @@ const observer = new IntersectionObserver(changes => {
 observer.observe(img);
 ```
 
-## 如何判断用户是否能上网
+### 如何判断用户是否能上网
 
 ```javascript
 　　if(window.navigator.onLine==true) {　
@@ -301,13 +329,13 @@ observer.observe(img);
 
 或者可以进入页面的时候先请求一下百度，如果请求错误则说明用户不能上网
 
-## JS如何判断对象中的属性
+### JS如何判断对象中的属性
 
 使用for in 或者Object.keys,Object.getOwnPropertyNames
 
 for in一般配合obj.hasOwnProperty使用
 
-## GET和POST的区别
+### GET和POST的区别
 
 POST和GET都是向服务器提交数据，并且都会从服务器获取数据。
 
@@ -363,7 +391,7 @@ GET比POST更不安全，因为参数直接暴露在URL上，所以不能用来�
 
 GET参数通过URL传递，POST放在Request body中。
 
-## 寄生组合继承（比较完美的继承解决方案）
+### 寄生组合继承（比较完美的继承解决方案）
 
 ```javascript
 function inherit(sub, super) {
@@ -390,8 +418,7 @@ function Sub(name,age) {
 inherit(Sub, Super)  //实现了继承
 ```
 
-
-## 事件委托
+### 事件委托
 
 #### 原理
 
@@ -451,12 +478,12 @@ ps: 不支持冒泡的事件
 2. 层级过多，冒泡过程中，可能会被某层阻止掉。
 3. 理论上委托会导致浏览器频繁调用处理函数，虽然很可能不需要处理。所以建议就近委托，比如在table上代理td，而不是在document上代理td。
 4. 把所有事件都用代理就可能会出现事件误判。比如，在document中代理了所有button的click事件，另外的人在引用改js时，可能不知道，造成单击button触发了两个click事件。
-=======
-## oninput和onchange的区别
+
+### oninput和onchange的区别
 
 oninput是在输入(元素或值发生改变)的时候立刻触发事件，onchange是在失去焦点的时候触发事件
 
-## JS动画和CSS动画的区别
+### JS动画和CSS动画的区别
 
 CSS动画
 
@@ -490,7 +517,7 @@ JS动画
  然而如果你在设计很复杂的富客户端界面或者在开发一个有着复杂UI状态的 APP。那么你应该使用js动画，这样你的动画可以保持高效，并且你的工作流也更可控。
  所以，在实现一些小的交互动效的时候，就多考虑考虑CSS动画。对于一些复杂控制的动画，使用JS比较可靠。
 
-## JSON.stringify()实现
+### JSON.stringify()实现
 
 ```js
 function jsonStringify(data) {

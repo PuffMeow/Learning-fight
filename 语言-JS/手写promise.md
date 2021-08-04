@@ -4,10 +4,8 @@ class Promise {
     this.state = 'pending';
     this.value = undefined;
     this.reason = undefined;
-      
     this.onResolvedCallbacks = [];
     this.onRejectedCallbacks = [];
-      
     let resolve = value => {
       if (this.state === 'pending') {
         this.state = 'fulfilled';
@@ -15,7 +13,6 @@ class Promise {
         this.onResolvedCallbacks.forEach(fn => fn());
       }
     };
-      
     let reject = reason => {
       if (this.state === 'pending') {
         this.state = 'rejected';
@@ -23,7 +20,6 @@ class Promise {
         this.onRejectedCallbacks.forEach(fn => fn());
       }
     };
-      
     try {
       executor(resolve, reject);
     } catch (err) {
@@ -34,7 +30,6 @@ class Promise {
   then(onFulfilled, onRejected) {
     onFulfilled = typeof onFulfilled === 'function' ? onFulfilled : value => value;
     onRejected = typeof onRejected === 'function' ? onRejected : err => { throw err };
-      
     let promise2 = new Promise((resolve, reject) => {
       if (this.state === 'fulfilled') {
         setTimeout(() => {
@@ -69,7 +64,6 @@ class Promise {
             }
           }, 0);
         });
-          
         this.onRejectedCallbacks.push(() => {
           setTimeout(() => {
             try {
@@ -82,7 +76,6 @@ class Promise {
         });
       };
     });
-      
     return promise2;
   }
   catch(fn) {
@@ -146,21 +139,39 @@ Promise.race = function (promises) {
 
 //all方法(获取所有的promise，都执行then，把结果放到数组，一起返回)
 Promise.all = function (promises) {
-  let res = [];
+  const data = [];
   let count = 0
   return new Promise((resolve, reject) => {
-    promises.forEach((item, i) => {
-      Promise.resolve(item).then(val => {
+    promises.forEach((promise, i) => {
+      Promise.resolve(promise).then(val => {
         count++
-        res[i] = val
+        data[i] = val
         if (count === promises.length) {
-          resolve(res)
+          resolve(data)
         }
       }).catch(err => {
         reject(err)
       })
     })
   });
+}
+
+Promise.allSettled = function (promises) {
+  const data = [], len = promises.length
+  let count = len
+  return new Promise((resolve, reject) => {
+    promises.forEach((promise, i) => {
+      promise.then(res => {
+        data[i] = { status: 'fulfilled', value: res }
+      }).catch(err => {
+        data[i] = { status: 'rejected', reason: err }
+      }).finally(() => {
+        if (!--count) {
+          resolve(data)
+        }
+      })
+    })
+  })
 }
 
 
