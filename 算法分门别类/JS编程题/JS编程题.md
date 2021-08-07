@@ -593,3 +593,60 @@ function randomNum(n) {
 randomNum(arr.length - 1)
 ```
 
+### 比较两个版本号
+
+如果 version1 > version2 返回 1，如果 version1 < version2 返回 -1， 除此之外返回 0。
+
+```js
+function version(v1, v2) {
+  let arr1 = v1.split('.'), arr2 = v2.split('.')
+  let len = Math.max(arr1.length, arr2.length)
+
+  while (arr1.length < len) {
+    arr1.push('0')
+  }
+  while (arr2.length < len) {
+    arr2.push('0')
+  }
+
+  for (let i = 0; i < len; i++) {
+    let num1 = Number(arr1[i]), num2 = Number(arr2[i])
+    if (num1 > num2) {
+      return 1
+    }
+    if (num1 < num2) {
+      return -1
+    }
+  }
+  return 0
+}
+
+console.log(version("0.1", "1.1"));
+console.log(version("1.0.1", "1"));
+console.log(version("7.5.2.4", "7.5.3"));
+console.log(version("1.01", "1.001"));
+console.log(version("1.0", "1.0.0"));
+```
+
+### 串行执行Promise请求
+
+```js
+async function solution(promises) {
+  for (let p of promises) {
+    await p
+  }
+}
+
+function sleep(time, str) {
+  return new Promise(resolve => {
+    setTimeout(() => {
+      console.log(str)
+      resolve()
+    }, time);
+  })
+}
+
+const promises = [sleep(1000, 1), sleep(2000, 2), sleep(3000, 3)]
+console.log(solution(promises))
+```
+
