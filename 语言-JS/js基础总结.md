@@ -333,7 +333,9 @@ observer.observe(img);
 
 使用for in 或者Object.keys,Object.getOwnPropertyNames
 
-for in一般配合obj.hasOwnProperty使用
+for in会遍历原型链上的属性，一般配合obj.hasOwnProperty使用
+
+Object.keys、Object.values、Object.entries遍历不包含原型链上的属性
 
 ### GET和POST的区别
 
