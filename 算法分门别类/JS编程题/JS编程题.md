@@ -463,3 +463,133 @@ for(let char of base64) {
 }
 ```
 
+### 千分位实现
+
+正则表达式
+
+1、正则表达式 \d{1,3}(?=(\d{3})+$)  表示前面有1~3个数字，后面的至少由一组3个数字结尾
+
+2、?=表示正向引用，可以作为匹配的条件，但匹配到的内容不获取，并且作为下一次查询的开始
+
+3、$& 表示与正则表达式相匹配的内容
+
+```js
+function solution(num) {
+  let _num = String(num)
+  let reg = /\d{1,3}(?=(\d{3})+$)/g
+
+  return _num.replace(reg, '$&,')
+}
+
+console.log(solution(12345678))
+```
+
+js实现
+
+```js
+function solution(num) {
+  let _num = String(num)
+  let str = ''
+
+  for (let i = _num.length - 1, j = 1; i >= 0; i--, j++) {
+    if (i !== 0 && j % 3 === 0) {
+      //每隔三位加逗号，过滤正好在第一个数字的情况
+      str += _num[i] + ','
+      continue
+    }
+    str += _num[i] //倒着累加数字
+  }
+
+  return str.split('').reverse().join('')
+}
+
+console.log(solution(1234567810))
+```
+
+### JSON.stringify()实现
+
+```js
+function jsonStringify(data) {
+  let type = typeof data;
+
+  if(type !== 'object') {
+    let result = data;
+    //data 可能是基础数据类型的情况在这里处理
+    if (Number.isNaN(data) || data === Infinity) {
+       //NaN 和 Infinity 序列化返回 "null"
+       result = "null";
+    } else if (type === 'function' || type === 'undefined' || type === 'symbol') {
+      // 由于 function 序列化返回 undefined，因此和 undefined、symbol 一起处理
+       return undefined;
+    } else if (type === 'string') {
+       result = '"' + data + '"';
+    }
+    return String(result);
+  } else if (type === 'object') {
+     if (data === null) {
+        return "null"  // 第01讲有讲过 typeof null 为'object'的特殊情况
+     } else if (data.toJSON && typeof data.toJSON === 'function') {
+        return jsonStringify(data.toJSON());
+     } else if (data instanceof Array) {
+        let result = [];
+        //如果是数组，那么数组里面的每一项类型又有可能是多样的
+        data.forEach((item, index) => {
+        if (typeof item === 'undefined' || typeof item === 'function' || typeof item === 'symbol') {
+               result[index] = "null";
+           } else {
+               result[index] = jsonStringify(item);
+           }
+         });
+         result = "[" + result + "]";
+         return result.replace(/'/g, '"');
+      } else {
+         // 处理普通对象
+         let result = [];
+         Object.keys(data).forEach((item, index) => {
+            if (typeof item !== 'symbol') {
+              //key 如果是 symbol 对象，忽略
+              if (data[item] !== undefined && typeof data[item] !== 'function' && typeof data[item] !== 'symbol') {
+                //键值如果是 undefined、function、symbol 为属性值，忽略
+                result.push('"' + item + '"' + ":" + jsonStringify(data[item]));
+              }
+            }
+         });
+         return ("{" + result + "}").replace(/'/g, '"');
+        }
+    }
+}
+```
+
+### 正则表达式字符串转驼峰
+
+```js
+'get-element-by-id'.replace(/-(\w)/g, ($,$1)=> $1.toUpperCase())
+//"getElementById"
+```
+
+### 去除字符串内空格的方式
+
+```javascript
+str.replace(/\s*/g,""); //去除字符串内所有的空格
+str.replace(/^\s*|\s*$/g,""); //去除字符串内两头的空格
+str.replace(/^\s*/,""); //去除字符串内左侧的空格
+str.replace(/(\s*$)/g,""); //去除字符串内右侧的空格
+```
+
+### 用递归算法实现，数组长度为5且元素的随机数在2-32间不重复的值
+
+```js
+const arr = new Array(5)
+function randomNum(n) {
+  if (n < 0) return
+  const num = Math.floor(Math.random() * 31 + 2)
+  if (arr.includes(num)) {
+    return randomNum(n)
+  }
+  arr[n] = num
+  return randomNum(n - 1)
+}
+
+randomNum(arr.length - 1)
+```
+
