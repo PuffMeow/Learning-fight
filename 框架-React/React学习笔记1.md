@@ -492,7 +492,7 @@ useEffect(() => {
 React Hooks解决的问题
 
 - 告别难以理解的 Class，主要是this和生命周期
-- 解决业务逻辑难以拆分的问题，比如在componentDidMount中做了一大堆操作以及订阅数据，然后在componentWillUnmout中卸载订阅，这里的逻辑其实是有关联的（订阅和取消订阅），但是却被拆分到了两个不同的生命周期函数中，变得难以维护（vue2中的Options api也存在这个问题，所以vue3用了Composition api去解决这个问题)。
+- 解决业务逻辑难以拆分的问题，比如在`componentDidMount`中做了一大堆操作以及订阅数据，然后在`componentWillUnmout`中卸载订阅，这里的逻辑其实是有关联的（订阅和取消订阅），但是却被拆分到了两个不同的生命周期函数中，变得难以维护（Vue2中的Options api也存在这个问题，所以Vue3用了Composition api去解决这个问题)。
 - 使状态逻辑复用变得简单可行，在类组件中进行逻辑复用，靠的是 HOC（高阶组件）和 Render Props 这些组件设计模式，而我们在hooks中可以使用自定义hooks
 - 函数组件从设计思想上来看，更加契合 React 的理念。
 
