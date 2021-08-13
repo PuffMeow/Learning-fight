@@ -4,55 +4,157 @@
 
 - 组件化开发： 可以很好的降低数据之间的耦合度。将常用的代码封装成组件之后，就能高度的复用，提高代码的可重用性。一个页面/模块可以由多个组件所组成。 
 
+### Vue的优点？Vue的缺点？
+
+优点：渐进式，组件化，轻量级，虚拟dom，响应式，单页面路由，数据与视图分开
+
+缺点：单页面不利于seo，不支持IE8以下，首屏加载时间长
+
+### Vue跟React的异同点？
+
+相同点：
+
+- 1.都使用了虚拟dom
+- 2.组件化开发
+- 3.都是单向数据流(父子组件之间，不建议子修改父传下来的数据)
+- 4.都支持服务端渲染
+
+不同点：
+
+- 1.React的JSX，Vue的template
+- 2.数据变化，React手动(setState)，Vue自动(初始化已响应式处理，Object.defineProperty)
+- 3.React单向绑定，Vue双向绑定
+
 ### Vue双向绑定原理
 
 #### Vue2
 
-Vue2中实现双向绑定使用的是ES5中的`Object.defineProperty` ，但是它存在一个问题，就是只能检测单个属性，而不能检测整个对象，而且无法对新增对象进行检测，我们还需要对原始数据进行拷贝。而且对于数组中数据的变化无法进行监听。数组原型上的几个方法如`['push', 'pop', 'shift', 'unshift', 'splice','reverse','sort']`都是可以改变数组的，我们就需要去重写实现监听。让我们来看看`Object.defineProperty`最基本的使用代码
+Vue2中实现双向绑定使用的是ES5中的`Object.defineProperty` ，但是它存在一个问题，就是只能检测单个属性，而不能检测整个对象，而且无法对新增对象进行检测，我们还需要对原始数据进行拷贝。而且对于数组中数据的变化无法进行监听。数组原型上的几个方法如`['push', 'pop', 'shift', 'unshift', 'splice','reverse','sort']`都是可以改变数组的，我们就需要去重写实现监听。当页面使用对应属性时，每个属性都拥有自己的`dep`属性，存放他所依赖的` watcher`（依赖收集），当属性变化后会通知自己对应的`watcher` 去更新(派发更新)。
 
-```html
-<!DOCTYPE html>
-<html lang="en">
+```javascript
+const { arrayMethods } = require('./array')
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Vue2双向绑定</title>
-</head>
-
-<body>
-  <input type="text" class="input" />
-  <div class="name"></div>
-</body>
-<script>
-  let obj = {
-    name: ''
-  }
-
-  let newObj = {
-    ...obj
-  }
-
-  Object.defineProperty(obj, 'name', {
-    get() {
-      return newObj.name
-    },
-    set(val) {
-      if (val === newObj.name) return
-      newObj.name = val
-      observe()
+class Observer {
+    constructor(value) {
+        Object.defineProperty(value, '__ob__', {
+            value: this,
+            enumerable: false,
+            writable: true,
+            configurable: true
+        })
+        if(Array.isArray(value)) {
+            value.__proto__ = arrayMethods
+            this.observeArray(value)
+        } else {
+            this.walk(value)
+        }
     }
-  })
 
-  function observe() {
-    let nameEl = document.getElementsByClassName('name')[0]
-    let inputEl = document.getElementsByClassName('input')[0]
-    nameEl.innerHTML = obj.name
-    inputEl.value = obj.name
-  }
-</script>
+    walk(data) {
+        let keys = Object.keys(data)
+        for(let i = 0; i < keys.length; i++) {
+            const key = keys[i]
+            const value = data[key]
+            defineReactive(data, key, value)
+        }
+    }
 
-</html>
+    observeArray(items) {
+        for(let i = 0; i < items.length; i++) {
+            observe(items[i])
+        }
+    }
+}
+
+function defineReactive(data, key, value) {
+    const childOb = observe(value)
+
+    const dep = new Dep()
+
+    Object.defineProperty(data, key, {
+        get() {
+            console.log('获取值')
+            if (Dep.target) {
+                dep.depend()
+
+                if (childOb) {
+                    childOb.dep.depend()
+
+                    if (Array.isArray(value)) {
+                        dependArray(value)
+                    }
+                }
+            }
+            return value
+        },
+        set(newVal) {
+            if (newVal === value) return
+            observe(newVal)
+            value = newVal
+            dep.notify()
+        }
+    })
+}
+
+function observe(value) {
+    if (Object.prototype.toString.call(value) === '[object Object]' || Array.isArray(value)) {
+        return new Observer(value)
+    }
+}
+
+function dependArray(value) {
+    for(let e, i = 0, l = value.length; i < l; i++) {
+        e = value[i]
+
+        e && e.__ob__ && e.__ob__.dep.depend()
+
+        if (Array.isArray(e)) {
+            dependArray(e)
+        }
+    }
+}
+
+// array.js
+const arrayProto = Array.prototype
+
+const arrayMethods = Object.create(arrayProto)
+
+const methodsToPatch = [
+    'push',
+    'pop',
+    'shift',
+    'unshift',
+    'splice',
+    'reverse',
+    'sort'
+]
+
+methodsToPatch.forEach(method => {
+    arrayMethods[method] = function (...args) {
+        const result = arrayProto[method].apply(this, args)
+
+        const ob = this.__ob__
+
+        var inserted
+
+        switch (method) {
+            case 'push':
+            case 'unshift':
+                inserted = args
+                break;
+            case 'splice':
+                inserted = args.slice(2)
+            default:
+                break;
+        }
+
+        if (inserted) ob.observeArray(inserted)
+
+        ob.dep.notify()
+
+        return result
+    }
+})
 ```
 
 然后我们在控制台中输入 `obj.name = '王大锤'` ，可以看到页面立马发生了变化，此时我们就已经可以检测到name属性的实时变化了
@@ -145,6 +247,10 @@ methodsToPatch.forEach(function (method) {
   })
 })
 ```
+
+### 为什么只对对象劫持，而要对数组进行方法重写？
+
+因为对象一般最多也就几十个属性，拦截起来数量不多，但是数组可能会有几百几千项，拦截起来非常耗性能，所以直接重写数组原型上的方法，是比较节省性能的方案
 
 #### Vue3
 
