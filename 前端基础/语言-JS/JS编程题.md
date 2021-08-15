@@ -21,6 +21,17 @@ function parseUrl(url) {
   return obj
 }
 
+
+//使用正则表达式的方式
+function parseUrl(url) {
+  let reg = /([^?&=]+)=([^?&=]+)/g
+  let obj = {}
+  url.replace(reg, (...args) => {
+    obj[args[1]] = args[2]
+  })
+  return obj
+}
+
 console.log(parseUrl('www.test.com?query=123&type=0&name=大哥'))
 ```
 
@@ -648,5 +659,134 @@ function sleep(time, str) {
 
 const promises = [sleep(1000, 1), sleep(2000, 2), sleep(3000, 3)]
 console.log(solution(promises))
+```
+
+### 实现一个lodash的get方法
+
+```js
+function deepGet(object, path, defaultValue = undefined) {
+  return (!Array.isArray(path) ? path.replace(/\[/g, '.').replace(/\]/g, '').split('.') : path)
+    .reduce((obj, key) => (obj || {})[key], object) || defaultValue
+}
+
+
+console.log(deepGet(obj, 'a[0].b.c'))  //哈哈哈
+console.log(deepGet(obj, ['a', '0', 'b', 'c'])) //哈哈哈
+```
+
+### ip地址判断
+
+ip地址格式：(1~255).(0~255).(0~255).(0~255)
+
+```js
+function ipCheck(ip) {
+  if (!ip || typeof ip !== 'string') return false
+  if (ip.length < 7 || ip.length > 15) {
+    return false
+  }
+  if (ip.charAt(0) === '.' || ip.charAt(ip.length - 1) === '.') {
+    return false
+  }
+
+  const arr = ip.split('.')
+  if (arr.length !== 4) {
+    return false
+  }
+
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i].length > 1 && arr[i].charAt(0) === '0') {
+      return false
+    }
+    for (let j = 0; j < arr[i].length; j++) {
+      if (arr[i].charAt(j) < '0' || arr[i].charAt(j) > '9') {
+        return false
+      }
+    }
+
+    let num = parseInt(arr[i])
+    if (i === 0) {
+      if (num < 1 || num > 255) {
+        return false
+      }
+    } else {
+      if (num < 0 || num > 255) {
+        return false
+      }
+    }
+  }
+
+  return true
+}
+
+console.log(ipCheck('255.255.255.255'))
+console.log(ipCheck('1.02.003.014'))
+console.log(ipCheck('1a.2.3.4'))
+console.log(ipCheck('-1.1.2.3'))
+console.log(ipCheck('123.123.123.123'))
+console.log(ipCheck('0.0.0.0'))
+console.log(ipCheck('123456789012345678 '))
+```
+
+### 手写Object.create
+
+```js
+Object.prototype.myCreate = function (obj) {
+  function Fn() { }
+  Fn.prototype = obj
+  return new Fn()
+}
+```
+
+### 手写bind
+
+```js
+Function.prototype.myBind = function (thisArg, ...args) {
+  let self = this
+
+  const bindFn = function (..._args) {
+    self.apply(this instanceof self ? this : thisArg, args.concat(_args))
+  }
+
+  bindFn.prototype = Object.create(self.prototype)
+
+  return bindFn
+}
+```
+
+### 手写深拷贝
+
+```js
+function deepClone(source, cache = new Map()) {
+  if (cache.has(source)) {
+    return cache.get(source)
+  }
+  if (source instanceof Object) {
+    let target
+    if (source instanceof Array) {
+      target = []
+    } else if (source instanceof Function) {
+      target = function (...args) {
+        return source.apply(this, args)
+      }
+    } else if (source instanceof RegExp) {
+      target = new RegExp(source)
+    } else if (source instanceof Date) {
+      target = new Date(source)
+    } else {
+      target = {}
+    }
+
+    cache.set(source, target)
+    for (let key in source) {
+      if (source.hasOwnProperty(key)) {
+        target[key] = deepClone(source[key], cache)
+      }
+    }
+
+    return target
+  } else {
+    return source
+  }
+}
 ```
 

@@ -34,12 +34,6 @@ c.length = 0
 - 箭头函数没有原型链属性，没有arguments，不能用于构造函数也不能new
 - 普通函数中，this总是指向调用它的对象，如果用作构造函数，this指向创建的对象实例，箭头函数本身没有this，但是它在声明时可以捕获其所在上下文的this供自己使用。this一旦指定就不会改变，call、apply、bind都不能改变。
 
-### div盒子 宽度未知,怎么实现宽高比2:1
-
-高度设0。用padding垂直方向百分比，比如padding-top:50%撑开。 因为margin和padding垂直方向设置百分比是依据自身宽度的。
-
-
-
 ### JS解析
 
 #### defer和async的区别
@@ -69,14 +63,23 @@ c.length = 0
 
 **生成机器码**：优化编译器(Turbofan)将字节码转换成优化过的机器码，此外在逐行执行字节码的过程中，如果一段代码经常被执行，那么V8会将这段代码直接转换成机器码保存起来，下一次执行就不必经过字节码，优化了执行速度
 
-### CommonJS、ES module？
+### JS模块化，CommonJS、ES module、AMD、CMD、UMD？
 
-- `CommonJS`是服务器端模块的规范，Node.js 采用了这个规范。CommonJS 规范加载模块是同步的，也就是说，只有加载完成，才能执行后面的操作，在浏览器中会出现堵塞的情况。通过对module.exports 或exports的属性赋值来达到暴露模块对象。**CommonJS在运行时加载：即在输入时是先加载整个模块，生成一个对象，然后再从这个对象上面读取方法**
-- ES6的导入导出是官方的实现，`export导出，import / import default导入`。**import在编译时加载：ES6 模块不是对象，而是通过 export 命令显式指定输出的代码。在import时可以指定加载某个输出值，而不是加载整个模块**，只有**ES module可以静态分析，实现Tree-shaking**
+**CommonJS：**是服务器端模块的规范，Node.js 采用了这个规范。CommonJS 规范加载模块是同步的，也就是说，只有加载完成，才能执行后面的操作，在浏览器中会出现堵塞的情况。通过对module.exports 或exports的属性赋值来达到暴露模块对象。**CommonJS在运行时加载：即在输入时是先加载整个模块，生成一个对象，然后再从这个对象上面读取方法**
 
-- require支持动态导入，import不支持，正在提案 (babel下可支持)
-- require 同步导入， import属于异步导入
-- require 是值拷贝，导出值的变化不会影响导入值； import 指向内存地址，导入值会随导出值而变化
+特点：
+
+- 每个文件都是独立的模块，有独立的作用域，不会污染全局空间。
+- 文件可以被重复引用、加载。第一次加载时会被缓存，之后再引用就直接读取缓存。
+- 加载某个模块时，module.exports 输出的是值的拷贝，一旦这个值被输出，模块内再发生变化不会影响已经输出的值。
+
+**ES6：**导入导出是官方的实现，`export导出，import / import default导入`。**import在编译时加载：ES6 模块不是对象，而是通过 export 命令显式指定输出的代码。在import时可以指定加载某个输出值，而不是加载整个模块**，只有**ES module可以静态分析，实现Tree-shaking**，导出是对模块的引用，输出的是值的引用，改变原来模块中的值引用的值也会改变
+
+**AMD：** CommonJS 规范加载模块是同步加载，只有加载完成，才能执行后面的操作，而 **AMD 是异步加载模块**，可以指定回调函数，**该规范的实现就是** `require.js`
+
+CMD：CMD 规范最大的特点就是`懒加载`，不需要在定义模块的时候声明依赖，可以在模块执行时动态加载依赖，`并且同时支持同步和异步`加载模块，整合了AMD和CommonJS规范的特点。该规范的实现是`sea.js`
+
+**UMD：** **没有专门的规范，而是集合了上面说的三个规范于一身，它可以让我们在合适的环境选择合适的模块规范**，面试百度的时候曾问到过这个问题：哪个模块化的方式能同时在浏览器和node上面使用，那就是UMD了。UMD的选择有一个判断过程，先判断支不支持 AMD (define 是否存在)，存在就使用 AMD 方式加载模块；再判断支不支持 Node.js 模块格式(export 是否存在)，存在就用 Node.js 模块格式；如果前两个都不存在，就将模块公开到全局，window 或 global。
 
 ### 说下闭包?
 
@@ -529,21 +532,138 @@ JS动画
  然而如果你在设计很复杂的富客户端界面或者在开发一个有着复杂UI状态的 APP。那么你应该使用js动画，这样你的动画可以保持高效，并且你的工作流也更可控。
  所以，在实现一些小的交互动效的时候，就多考虑考虑CSS动画。对于一些复杂控制的动画，使用JS比较可靠。
 
-### 页面上隐藏元素的方法
+### 不同的网页之间如何进行消息传输？
 
-##### 占位:
+```js
+// 发送消息端
+window.parent.postMessage('message', 'http://test.com')
 
-- `visibility: hidden;`
-- `margin-left: -100%;`
-- `opacity: 0;`
-- `transform: scale(0);`
+// 接收消息端
+var mc = new MessageChannel()
+mc.addEventListener('message', event => {
+  var origin = event.origin || event.originalEvent.origin
+  if (origin === 'http://test.com') {
+    console.log('验证通过')
+  }
+})
+```
 
-##### 不占位:
+### 回流和重绘
 
-- `display: none;`
-- `width: 0; height: 0; overflow: hidden;`
+回流必定会发生重绘，重绘不一定会引发回流。回流所需的成本比重绘高的多，改变深层次的节点很可能导致父节点的一系列回流。很多人不知道的是，重绘和回流其实和 Event loop 有关。
 
-仅对块内文本元素:
+1. 当 Event loop 执行完 微任务队列后，会去执行UI渲染，会判断 document 是否需要更新。因为浏览器是 60Hz 的刷新率，每 16ms 才会更新一次。
+2. 然后判断是否有 `resize` 或者 `scroll` ，有的话会去触发事件，所以 `resize` 和 `scroll` 事件也是至少 16ms 才会触发一次，并且自带节流功能。
+3. 判断是否触发了 media query
+4. 更新动画并且发送事件
+5. 判断是否有全屏操作事件
+6. 执行 `requestAnimationFrame` 回调
+7. 执行 `IntersectionObserver` 回调，该方法用于判断元素是否可见，可以用于懒加载上，但是兼容性不好
+8. 更新界面
+9. 以上就是一帧中可能会做的事情。如果在一帧中有空闲时间，就会去执行 `requestIdleCallback` 回调。
 
-- `text-indent: -9999px;`
-- `font-size: 0;`
+### 同时在页面上插入10万条数据
+
+```js
+setTimeout(() => {
+  const total = 100000
+  const once = 20
+  
+  const totalRenderCount = total / once
+  let renderCount = 0
+  
+  const ul = document.createElement('ul')
+  document.body.appendChild(ul)
+    
+  function loop() {
+    if (renderCount < totalRenderCount) {
+      requestAnimationFrame(add)
+    }
+  }
+    
+  function add() {
+    const fragment = document.createDocumentFragment()
+    for (let i = 0; i < once; i++) {
+      const li = document.createElement('li')
+      li.innerText = Math.floor(Math.random() * total)
+      fragment.appendChild(li)
+    }
+    renderCount++
+    ul.appendChild(fragment)
+    loop()
+  }
+    
+  loop()
+}, 0)
+```
+
+### 手写bind方法
+
+```js
+Function.prototype.myBind = function (thisArg, ...args) {
+  let self = this
+
+  let bindFn = function (..._args) {
+    self.apply(this instanceof self ? this : thisArg, args.concat(_args))
+  }
+
+  bindFn.prototype = Object.create(self.prototype)
+
+  return bindFn
+}
+```
+
+### 节流和防抖(带立即执行功能)
+
+```js
+function throttle(fn, wait = 500, immediate = false) {
+  let prev = +new Date()
+  
+  return function (...args) {
+    if (immediate) {
+      fn.apply(this, args)
+      immediate = false
+    }
+    let now = +new Date()
+    if (now - prev > wait) {
+      fn.apply(this, args)
+      prev = +new Date()
+    }
+  }
+}
+
+function debounce(fn, wait = 500, immediate = false) {
+  let timer = null
+  
+  return function (...args) {
+    if (timer) clearTimeout(timer)
+    if (immediate) {
+      fn.apply(this, args)
+      immediate = false
+    } else {
+      timer = setTimeout(() => {
+        fn.apply(this, args)
+      }, wait);
+    }
+  }
+}
+```
+
+### 深层属性get方法
+
+```js
+function deepGet(object, path, defaultValue = undefined, style = '.') {
+  return (!Array.isArray(path) ? path.replace(/\[/g, style).replace(/\]/g, '').split(style) : path)
+    .reduce((obj, key) => (obj || {})[key], object) || defaultValue
+}
+
+console.log(deepGet(obj, 'a[0].b.c'))
+
+console.log(deepGet(arr, [4]))
+```
+
+### 怎么让0.1+0.2等于0.3
+
+最简单的方式就是 让0.1和0.2都乘以10的N次方再除以10的N次方。(0.1 * 1000 + 0.2 * 1000) / 1000 === 0.3
+
+也可以用两边转成字符串的方式
