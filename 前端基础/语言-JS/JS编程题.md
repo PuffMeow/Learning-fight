@@ -192,7 +192,7 @@ function num(m, n, k) {
 ```javascript
 function myAll(promises) {
   let index = 0
-  let res = []
+  const res = []
   return new Promise((resolve, reject) => {
     promises.forEach((item, i) => {
       Promise.resolve(item).then(res => {
