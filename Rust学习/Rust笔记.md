@@ -1,3 +1,7 @@
+### Rust官方学习资料
+
+https://www.rust-lang.org/zh-CN/learn。为什么我要学Rust，首先是因为它下到可以写嵌入式编程，上到可以写Web应用，既足够底层，又拥有一定的应用层开发效率，另外作为一个科班出身的，当年学习C++不精，所以现在想通过Rust弥补一下自己的底层应用开发知识，于是便开始了Rust的学习。俗话说的好：学习一个新东西最好的时间就是过去，以及现在。那我们现在就开始！
+
 ### Rust特点
 
 优点：无需GC、安全、性能高、无所畏惧的并发
@@ -7,12 +11,12 @@
 ### 适合领域
 
 - 高性能Web服务器
-
 - WebAssembly
 - 命令行工具
 - 网络编程
 - 嵌入式
 - 系统编程
+- 游戏开发
 
 ### 安装
 
@@ -144,6 +148,14 @@ cargo check
 cargo build --release
 ```
 
+#### 更新依赖项
+
+```
+cargo update
+```
+
+会忽略`Cargo.lock`里的依赖版本而去使用最新的依赖项去更新
+
 #### 解决cargo下载依赖速度慢的问题
 
 更换镜像源，windows系统下，按win键搜索powershell并打开
@@ -172,6 +184,8 @@ registry = "git://mirrors.ustc.edu.cn/crates.io-index"
 
 #### 安装开发环境
 
+Rust Language Server (RLS)为集成开发环境（IDE）提供了强大的代码补全和内联错误信息功能。
+
 命令行依次执行命令，这几个工具可以给VS Code提供IDE般的体验，包括代码提示，代码告警，函数提示等。
 
 ```
@@ -183,7 +197,7 @@ rustup component add rust-src
 
 ### Demo练习
 
-#### 猜数游戏1
+#### 数字游戏1
 
 ```rust
 use std::io; //prelude预导入模块
@@ -211,5 +225,190 @@ fn main() {
 猜测的数是：1
 ```
 
-#### 猜数游戏2
+#### 数字游戏2
+
+Rust并没有提供生成随机数的标准库，所以我们得引入第三方的生成随机数的标准库rand。[Lib.rs](https://www.baidu.com/link?url=N2HEh5QmQ6SqjQwa0h1yhwLCKmyYvQOiYjOyDkFHN9u&wd=&eqid=86471ac00006131600000004612cff14)，在这里面搜索rand。
+
+使用方法：在`Cargo.toml` 里面添加依赖
+
+```toml
+[dependencies]
+rand = "0.8.4"
+```
+
+添加完依赖项之后运行cargo build，会自动安装相关依赖项，如果rand里带有其它的依赖项，也同时会把其它的依赖项安装下来。如果只是更新了源代码，cargo build的时候就不需要编译依赖项了，只是编译源代码。生成随机数代码：
+
+```rust
+use rand::Rng; //引入Rand库
+
+fn main() {
+    println!("生成随机数");
+
+    let secret_number = rand::thread_rng().gen_range(1..101);
+
+    println!("打印的随机数是:{}", secret_number)
+}
+```
+
+#### 数字游戏3
+
+我们这次来随机生成一个数，然后去输入值，看输入的值是否和生成的随机数匹配
+
+```rust
+use rand::Rng;
+use std::cmp::Ordering;
+use std::io; //引入标准的比较库，Ordering是对两个值进行比较
+
+fn main() {
+    println!("猜数游戏开始");
+    let rand_number = rand::thread_rng().gen_range(1..101);
+    println!("随机生成的数字是{}", rand_number);
+
+    println!("输入一个数字:");
+
+    let mut guess = String::new();
+    io::stdin().read_line(&mut guess).expect("无法读取输入数据");
+
+    //将字符串类型转化成数字类型，然后和生成的随机数做比较，记得先trim去除空格或换行符，parse是将其它类型转换为数字类型。
+    //u32类型其实就是无符号整型，后面会讲到类型
+    //Rust中可以重复声明，这是一个shadow(隐藏，隐藏之前声明过的变量)变量，在当前作用域中，
+    //这里的guess以后的代码会读取到这个guess而不是上面的那个，
+    //相当于我们不再关心原变量，而往后我们取的是当前的这个目标量
+    let guess: u32 = guess.trim().parse().expect("请输入一个数字");
+
+    println!("你猜的数字是{}", guess);
+
+    //匹配模式，类似于Switch
+    match guess.cmp(&rand_number) {
+        Ordering::Equal => println!("你猜中啦"), //注意后面是逗号
+        Ordering::Greater => println!("猜大了"),
+        Ordering::Less => println!("猜小了"),
+    }
+}
+
+```
+
+#### 循环的多次猜测
+
+我们想要不断的可以输入去猜测，直到猜对了才停止，而不是猜完一次就停止，那要怎么做呢，其实就是加入一个loop循环，猜中了就终止循环
+
+```rust
+use rand::Rng;
+use std::cmp::Ordering;
+use std::io; //引入标准的比较库，Ordering是对两个值进行比较
+
+fn main() {
+    println!("猜数游戏开始");
+    let rand_number = rand::thread_rng().gen_range(1..101);
+
+    loop {
+        println!("输入一个数字:");
+
+        let mut guess = String::new();
+        io::stdin().read_line(&mut guess).expect("无法读取输入数据");
+
+        //使用模式匹配，当输入的数字产生错误，就跳过本次循环，如果正确就直接将数字给返回
+        let guess: u32 = match guess.trim().parse() {
+            Ok(num) => num,
+            Err(_) => continue,
+        };
+        println!("你猜的数字是{}", guess);
+        //匹配模式，类似于Switch
+        match guess.cmp(&rand_number) {
+            Ordering::Equal => {
+                println!("你猜中啦");
+                break;
+            } //注意后面是逗号
+            Ordering::Greater => println!("猜大了"),
+            Ordering::Less => println!("猜小了"),
+        }
+    }
+}
+
+```
+
+### 变量、可变性
+
+- Rust中声明变量使用let(不要理解成和别的语言的const一样，const声明时必须要赋值，并且是常量值，而rust中的let不需要初始赋值，声明和赋值可以分开)，比如说：
+
+  ```rust
+  fn main() {
+      let x: u32;
+      x = 32;
+      
+      //如果在之后重新赋值,这里就会报错·cannot assign twice to immutable variable `x`，不能对不可变变量重复赋值。
+      x = 64;
+  }
+  ```
+
+- 默认情况，变量不可变(immutable)，除非加上mut
+
+- 常量声明：绑定以后也是不可变的，但和不可变变量有区别：不可以使用mut关键字，声明变量使用const，并且必须标注类型，常量可以在任何作用域声明，全局作用域也行。常量只能绑定到常量表达式，而不能绑定到函数的调用结果或需要运行才能计算出的值。常量在程序运行期间，在声明的作用域内一直有效。Rust中，常量值声明所有都要用大写，比如：
+
+  `const RAND_NUMBER:u32 = 100`
+
+- 隐藏变量(shadow)，可以使用相同的名字声明新变量，新变量会隐藏之前声明过的同名变量。
+
+### 数据类型
+
+Rust是静态类型语言，在编译时必须要知道所有变量的类型，而基于程序使用的值，编译器通常是可以自己推导出的，类型于TS的类型推导。但是在类型转换时类型比较多，例如(String转为整数的parse方法)，就需要添加上类型标注，不然就会编译报错。比如说下面的例子不写:u32就会报错。
+
+```rust
+let guess:u32 = "555".parse().expect("不是一个数字类型");
+```
+
+Rust中主要有4中标量类型，分别是
+
+- 整数类型：u32(unsign)就是无符号(不区分正负号)整数类型，占据32位(2^32-1)的空间。而有符号整数类型是以i开头，比如i32(integer)，这里可以看下面这个表
+
+  有符号范围是-(2^(n-1))到2^(n-1) - 1
+
+  无符号范围是0到(2^n-1)
+
+  | 长度                                               | 整型  | 无符号整型 |
+  | -------------------------------------------------- | ----- | ---------- |
+  | 8-bit                                              | i8    | u8         |
+  | 16-bit                                             | i16   | u16        |
+  | 32-bit                                             | i32   | u32        |
+  | 64-bit                                             | i64   | u64        |
+  | 128-bit                                            | i128  | u128       |
+  | 根据电脑的位数适配，比如电脑是32位或64位，自动适配 | isize | usize      |
+
+  整数溢出概念：比如u8的范围是0-255，如果把u8变量值设为256，调试模式下就会panic(错误机制，译为恐慌)，发布模式下Rust不会检查可能导致整数溢出的panic，如果溢出了会把256变成0，257变成1，程序不会产生panic。
+
+- 浮点类型：f32，32位单精度浮点类型，类似于C++里的float；f64，64位双精度浮点类型，类似于C++的double，Rust浮点类型使用了IEEE-754标准描述，跟我们熟悉的JS是一样的。f64是默认的浮点类型，精度高，且速度和f32差不多，所以采用该类型作为默认。
+
+- 布尔类型：true和false，占用1个字节大小，符号是bool，可以显式声明类型，也可以由编译器默认推导。
+
+- 字符类型：Rust中使用char类型来描述单个字符，字符类型字面量使用单引号，占用4个字节，使用的是Unicode标量值，可以表示比ASCⅡ码多得多的字符，比如拼音，韩文日文、emoji表情等。
+
+### 复合类型
+
+#### Tuple(元组)
+
+可以将多个类型的多个值放到同一个类型里，类似于TS的[string, number, boolean]。Tuple长度固定，声明了就无法再修改，比如说：
+
+```rust
+let tup:(char, f64, bool) = ('x', 55, true)
+//Rust的解构值
+let (x, y, z) = tup
+//访问值
+println!("{},{},{}",tup.0, tup.1, tup.2)
+//类似的，对应到TS就是
+let tup:[string, number, boolean] = ['x', 55, true]
+//TS的解构
+let [x, y, z] = tup
+//TS访问值
+console.log(`${tup[0]},${tup[1]},${tup[2]}`)
+```
+
+#### 数组
+
+数组的数据存放在栈中，而不是堆中，而Vector和数组类型但是比数组更灵活，是Rust中的标准库，数据存在堆中。数组长度不可变，但是Vector长度可变。
+
+数组的类型可以以[类型;长度]这种方式来表示，比如
+
+```rust
+let a:[i32;5] = [1,2,3,4,5]
+```
 
