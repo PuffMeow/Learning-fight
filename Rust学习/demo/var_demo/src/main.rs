@@ -1,4 +1,4 @@
 fn main() {
-    let x: u32;
-    x = 32;
+    let num: u32;
+    num = 32;
 }
