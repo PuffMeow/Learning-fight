@@ -827,6 +827,7 @@ fn main() {
     println!("res: {}", res);
 }
 
+//返回类型&str是字符串切片的类型。
 fn first_word(s: &String) -> &str {
     //as_bytes方法会将s字符串转化为字符串数组。bytes的类型是&[u8]
     
@@ -847,4 +848,215 @@ fn first_word(s: &String) -> &str {
 ```
 
 ### Struct 结构体
+
+#### 基本使用
+
+自定义的数据类型，类似于TS的interface。
+
+```rust
+struct User {
+    username: String,
+    email: String,
+    age: usize,
+    active: bool,
+} //这里不需要分号
+
+fn main() {
+    //如果需要user1里的字段可变，可以声明 let mut user1。那么里面的内容都是可以修改的。
+    let user1 = User {
+        username: String::from("王大锤"),
+        email: String::from("xxxxxx@qq.com"),
+        age: 13,
+        active: true,
+    };
+
+    println!(
+        "username: {}, email: {}, age: {}, active: {}",
+        user1.username, user1.email, user1.age, user1.active
+    );
+    //username: 王大锤, email: xxxxxx@qq.com, age: 13, active: true
+}
+```
+
+Struct也可以作为函数的返回值，字段名和字段值对应变量名相同时，可以简写，类似于JS
+
+```rust
+fn build_user(email:String, username: String) -> User {
+    User {
+        email,
+        username,
+        age:13,
+        active:true
+    }
+}
+```
+
+#### struct更新语法
+
+```rust
+fn main() {
+    //如果需要user1里的字段可变，可以声明 let mut user1。那么里面的内容都是可以修改的。
+    let user1 = User {
+        username: String::from("王大锤"),
+        email: String::from("xxxxxx@qq.com"),
+        age: 13,
+        active: true,
+    };
+
+    let user2 = User {
+        username: String::from("大锤giegie"),
+        email: String::from("xxxx@163.com"),
+        ..user1
+    };
+}
+```
+
+#### Tuple Struct(结构体元组)
+
+可以定义类似Tuple元组的Struct。
+
+```rust
+struct Color(i32, i32, i32);
+struct Point(i32, i32, i32);
+let white = Color(255,255,255);
+let origin = Point(0,0,0);
+```
+
+#### Struct数据的所有权
+
+```rust
+struct User {
+    username: String,
+    email: String,
+    age: usize,
+    active: bool,
+}
+```
+
+- 这里的字段使用了String而不是&str
+- 只要struct实例是有效的，那么里面的字段数据也是有效的
+- Struct里也可以存放引用，但是需要使用生命周期(后面补充)
+
+- 如果struct里存放引用但不使用生命周期就会报错。
+
+#### Demo
+
+计算长方形面积
+
+```rust
+//对这个结构体使用调试模式，这个注解实际上使用的是std::fmt::Debug
+#[derive(Debug)] 
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+fn main() {
+    let rect = Rectangle {
+        width: 10,
+        height: 10,
+    };
+
+    println!("area is {}", area(&rect));
+
+    //这里是为了能将rect里的信息更好的打印出来，对应的结构体上面记得加#[derive(Debug)]，加#号会换行
+    println!("{:#?}", rect);
+}
+
+fn area(rect: &Rectangle) -> u32 {
+    rect.width * rect.height
+}
+```
+
+#### stuct的方法
+
+- 方法和函数类似
+- 不同之处：方法在struct中(或enum、trait对象)的上下文定义里
+
+- 方法第一个参数总是self，表示方法被调用的struct实例，后续跟着的是其它参数。
+
+方法定义
+
+- 在impl块里定义方法
+- 方法第一个参数是&self时是引用，不获得所有权，如果写self会获得当前结构体所有权，也可以使用mut关键数字实现可变借用
+
+使用方法来重写上面的例子
+
+```rust
+#[derive(Debug)]
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    //引用Rectangle结构体
+    fn area(&self) -> u32 {
+        self.width * self.height
+    }
+}
+
+fn main() {
+    let rect = Rectangle {
+        width: 10,
+        height: 10,
+    };
+
+    println!("area is {}", rect.area());
+
+    println!("{:#?}", rect);
+}
+```
+
+#### 方法调用运算符
+
+Rust会在调用方法时自动引用或解引用。
+
+调用方法时，Rusthui根据情况自动添加&、&mut或*(解引用符号)，以便object可以匹配到方法的签名，比如说下面两行代码效果相同。
+
+```
+p1.distance(&p2);
+(&p1).distance(&p2);
+```
+
+#### 关联函数
+
+可以在impl块里定义不把self作为第一个参数的函数，叫关联函数(不叫方法了)，类似于别的语言的静态方法static。比如我们之前用得很多的`String::from()`就是一个关联函数。
+
+- 关联函数常用于构造器
+
+看个例子，下面就是关联函数的例子。
+
+```rust
+#[derive(Debug)] //对这个结构体使用调试模式，这个注解实际上使用的是std::fmt::Debug
+struct Rectangle {
+    width: u32,
+    height: u32,
+}
+
+impl Rectangle {
+    fn square(size: u32) -> Rectangle {
+        Rectangle {
+            width: size,
+            height: size,
+        }
+    }
+}
+
+fn main() {
+    let rect = Rectangle::square(10);
+    println!("{:?}", rect); //Rectangle { width: 10, height: 10 }
+}
+```
+
+到了现在，我们再来说说我们之前一直在使用到的两个冒号，::，这是干嘛用的呢？
+
+- 可以使用于关联函数
+- 模块创建的命名空间(后面讲)
+
+#### 多个impl块
+
+每个struct结构体可以拥有多个impl块。比如同名的impl块，里面放不同的方法(同一种类型的抽象可以这样但没必要)。
+
+
 
