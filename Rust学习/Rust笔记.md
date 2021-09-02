@@ -603,7 +603,7 @@ fn main() {
 }
 ```
 
-- Copy trait(复制特性)，可以像整数这样完全存放在stack上面的类型
+- **Copy trait(复制特性)**，可以像整数这样完全存放在stack上面的类型
 - 如果一个类型实现了Copy这个trait，那么旧变量可以在赋值给其它变量后继续使用，而不会被回收。
 - 如果一个类型或者该类型的一部分使用了Drop trait，那么Rust就不允许它继续实现Copy trait了。
 
@@ -611,5 +611,240 @@ fn main() {
 
 - 任何简单的组合数据类型都可以实现Copy trait
 - 需要分配内存或资源的类型都不可以实现Copy trait，而是Drop trait
-- 拥有Copy trait的类型：所有整数类型，比如u32、bool类型、char类型、浮点类型、Tuple(前提是里面的所有数据都是可以实现Copy trait的)
+- 拥有Copy trait的类型：所有整数类型，比如u32、bool类型、char类型、浮点类型、Tuple(前提是里面的所有数据都是可以实现Copy trait的，并且元组数量不能超过12)
+
+#### 所有权和函数
+
+下面看两个例子，为引用的概念做铺垫。
+
+```rust
+fn main() {
+    let s = String::from("hello world");
+
+    take_string(s);
+
+    //这里s会报错，因为s的所有权被转移到了take_string函数里，然后函数执行完，就会调用drop函数，把s的内存释放掉。
+    println!("s:{}", s);
+
+    let x = 5;
+
+    //这里不会发生什么特殊的事情，因为传递进去的x是通过复制进去的。
+    take_var(x);
+}
+
+fn take_string(test_string: String) {
+    println!("{}", test_string);
+}
+
+fn take_var(test_var: i32) {
+    println!("{}", test_var)
+}
+
+```
+
+```rust
+fn main() {
+    let s1 = gives_ownership();
+
+    let s2 = String::from("hello");
+
+    //函数执行的结果返回到s3上了
+    let s3 = take_and_give_back(s2);
+
+    //这里的s2会报错。因为s2已经被移动到函数里，最后函数执行完，s2就会被drop掉。
+    println!("s1:{}, s2:{}, s3:{}", s1, s2, s3)
+}
+
+fn gives_ownership() -> String {
+    let some_string = String::from("hello1");
+    some_string
+}
+
+fn take_and_give_back(test_string: String) -> String {
+    //这里取得s2的String的所有权，并将它作为结果进行返回
+    test_string
+}
+
+```
+
+#### 返回值和作用域
+
+- 函数在返回的时候也会发生所有权的转移
+- 把一个值赋值给其它变量的时候所有权会发生移动
+- 当一个包含堆数据的变量离开作用域时，它的值会被drop函数清理掉，除非所有权移动到了另一个变量上。
+
+#### 如何让函数使用某个值，但是又不获得所有权？ ->使用引用
+
+这里就提出了引用(reference)的概念。引用允许你使用某个值而不获得它的所有权。
+
+```rust
+fn main() {
+    let s1 = String::from("hello");
+
+    //这里calc_length函数传递进去的s1，只是s1的引用，所以所有权不会进行移动。外面的s1的所有权依旧存在。
+    let len = calc_length(&s1);
+
+    println!("{}的长度是{}", s1, len); //hello的长度是5
+}
+
+fn calc_length(test_string: &String) -> usize {
+    test_string.len()
+}
+```
+
+#### 借用
+
+把引用作为函数参数的这种行为就称为借用，可以看上面的例子，把s1借用到了calc_length函数里，但是没获得它的所有权。**借用到函数里面的变量是不可以修改的，和变量一样，引用默认也是不可修改的(imutable)，但是如果声明可变引用的话则引用是可以修改的**
+
+```rust
+fn main() {
+    let mut s1 = String::from("hello");
+
+    let len = calc_length(&mut s1);
+
+    println!("{}的长度是{}", s1, len); //hello,world的长度是11
+}
+
+fn calc_length(test_string: &mut String) -> usize {
+    //因为传的是可变引用，所以这里可以修改
+    test_string.push_str(",world");
+    test_string.len()
+}
+```
+
+可变引用的限制 ： 在特定作用域内，对某一块数据，只能有一个可变的引用。**这样做的好处是可以在编译时防止数据产生竞争。**
+
+```rust
+fn main() {
+    let mut s = String::from("hello");
+
+    let s1 = &mut s;
+    //这里就会报错cannot borrow `s` as mutable more than once at a time
+    //意思就是不能同时对s进行超过一次的可变引用。
+    let s2 = &mut s;
+
+    println!("s1:{}, s2:{}", s1, s2);
+}
+```
+
+数据竞争会发生的情况，这些行为在运行时是很难发现的，所以就在编译时就防止这种现象出现。
+
+- 两个或多个指针同时访问同一个数据
+- 至少有一个指针用于写入数据
+- 没有使用任何机制来同步对数据的访问
+
+可以通过创建新的作用域来允许非同时创建多个可变引用：
+
+```rust
+fn main() {
+    let mut s = String::from("hello");
+
+    let s1 = &mut s;
+
+    {
+        let s2 = &mut s;
+    }
+}
+```
+
+另外的限制：
+
+- 不可以同时拥有一个可变引用和一个不可变的引用，多个不变的引用则是可以的
+
+```rust
+fn main() {
+    let mut s = String::from("hello");
+
+    let s1 = &s;
+    let s2 = &s;
+    // 这里报错cannot borrow `s` as mutable because it is also borrowed as immutable。
+    //不能借用已经被不可变引用的s再进行可变引用。
+    let s3 = &mut s;
+
+    println!("s1:{}, s2:{}, s3:{}", s1, s2, s3)
+}
+```
+
+#### 悬空引用
+
+概念：一个指针引用了内存中的某个地址，而这块内存可能已经被释放并分配给别人使用了。
+
+而Rust编译器会保证引用永远都不会产生悬空引用
+
+- 如果引用了某些数据，编译器会保证引用离开作用域之前数据不会离开作用域。
+
+```rust
+fn main() {
+    let s = test();
+}
+
+//这里报错：expected named lifetime parameter，期待声明一个生命周期的参数
+//生命周期后面具体再讲
+fn test() -> &String {
+    let s = String::from("hello");
+    &s
+}
+```
+
+#### 引用的规则
+
+任何给定时刻，只能满足以下两个条件之一：
+
+- 一个可变的引用
+- 任意数量不可变的引用
+
+引用必须要一直有效。
+
+#### 切片(一种不持有所有权的数据类型，slice)
+
+字符串切片是指向字符串中**一部分内容的引用**。使用方式[开始索引..结束索引) ，左闭右开区间。
+
+```rust
+fn main() {
+    let s = String::from("hello world");
+
+    let hello = &s[0..5]; //语法糖&[..5]
+    let world = &s[6..11]; //语法糖&[6..]
+
+    //获取所有字符串,相当于[0..s.len()]
+    let whole = &s[..];
+
+    println!("{}, {}, whole: {}", hello, world, whole); //hello, world, whole: hello world
+}
+```
+
+测试一道题：
+
+- 接收字符串作为参数
+- 返回它在这个字符串中找到的第一个单词
+- 如果函数没找到任何空格，那么将整个字符串返回
+
+```rust
+fn main() {
+    let s = String::from("hello world");
+    let res = first_word(&s);
+
+    println!("res: {}", res);
+}
+
+fn first_word(s: &String) -> &str {
+    //as_bytes方法会将s字符串转化为字符串数组。bytes的类型是&[u8]
+    
+    let bytes = s.as_bytes();
+    // (i, &item)是元组类型。iter方法创建迭代器，依次返回数组中每个元素
+    //然后调用enumerate这个方法，把iter的结果进行包装，并把每个结果作为元组的一部分进行返回。
+    //元组的第一个元素就是enumerate遍历的索引，第二个元素就是数组里的元素。
+    //这里实际上用了模式匹配
+    for (i, &item) in bytes.iter().enumerate() {
+        //判断遍历到的项是否等于空格 b' '(byte),为空格的写法。
+        if item == b' ' {
+            return &s[..i];
+        }
+    }
+
+    &s[..]
+}
+```
+
+### Struct 结构体
 
