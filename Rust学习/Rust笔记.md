@@ -1060,3 +1060,245 @@ fn main() {
 
 
 
+### 枚举
+
+允许我们列举所有可能的值来定义一个类型，比如性别：要么是男、要么是女。(人妖？？？)，这就是一种枚举类型
+
+```rust
+enum Gender {
+	Boy,
+	Girl,
+}
+```
+
+#### 枚举值
+
+```rust
+enum Gender {
+	Boy,
+	Girl,
+}
+//枚举的变体都位于标识符的命名空间下，使用两个冒号分隔开
+let boy = Gender::Boy;
+let girl = Gender::Girl;
+```
+
+#### 将数据附加到枚举的变体中
+
+```rust
+enum Gender {
+    Boy(String),
+    Girl(String),
+}
+
+//或者
+enum Gender {
+    Boy(String, String, String),
+    Girl(String),
+}
+
+fn main() {
+    let boy = Gender::Boy( "大锤", "中风", "小明");
+    let girl = Gender::Girl("小红");
+}
+```
+
+- 优点：不需要使用额外的结构体struct
+- 每个变体都可以拥有不同(任意)的类型以及关联的数据量
+
+```rust
+#[derive(Debug)]
+enum Gender {
+    Boy(String, String, String),
+    Girl(String),
+}
+
+fn main() {
+    let boy1 = String::from("大锤");
+    let boy2 = String::from("中风");
+    let boy3 = String::from("小明");
+    let girl1 = String::from("小红");
+
+    let boy = Gender::Boy(boy1, boy2, boy3);
+    let girl = Gender::Girl(girl1);
+
+    //boys are: Boy("大锤", "中风", "小明"), girl is: Girl("小红")
+    println!("boys are: {:?}, girl is: {:?}", boy, girl);
+}
+```
+
+#### 为枚举定义方法
+
+类似于给结构体定义方法，使用impl关键字。
+
+```rust
+enum Gender {
+    Boy(String, String, String),
+    Girl(String),
+}
+
+impl Gender {
+    fn run(&self, gender: String) {
+        println!("{} 跑得很快", gender);
+    }
+}
+
+fn main() {
+    let boy1 = String::from("大锤");
+    let boy2 = String::from("中风");
+    let boy3 = String::from("小明");
+    let girl1 = String::from("小红");
+
+    let boys = Gender::Boy(boy1, boy2, boy3);
+    let girl = Gender::Girl(girl1);
+
+    boys.run(String::from("男孩们")); //男孩们 跑得很快
+    girl.run(String::from("小女孩")); //小女孩 跑得很快
+}
+```
+
+#### Option枚举
+
+- 定义在标准库中
+- 在prelude(预导入模块)中，不需要用户手动导入
+- 描述了某个值可能存在或不存在的情况
+
+Rust中没有Null(表示没有值)这个概念，Null的概念实际上是因为某种原因变为无效或缺失的值，那么Rust使用什么代替呢？
+
+Rust提供了类似于Null概念的枚举 Option<T>，T是泛型，泛型的用法类似于其它语言，后面具体讲。
+
+```rust
+enum Option<T> {
+    Some(T),
+    None,
+}
+```
+
+看个例子
+
+```rust
+fn main() {
+    let x: i8 = 5;
+    let y: Option<i8> = Some(5);
+    let z: Option<i8> = None;
+
+    //报错cannot add `std::option::Option<i8>` to `i8`
+    let sum = x + y;
+}
+```
+
+在这里，Option<i8>和i8是两个不同的类型，不可以直接相加，比Null来说更安全。
+
+#### 枚举和模式匹配的控制流运算符match
+
+这是现代化语言的精髓部分
+
+- 允许一个值和一系列模式进行匹配，并执行匹配的模式对应的代码
+- 模式可以是字面值、变量名、通配符
+
+```rust
+#[derive(Debug)]
+enum UsState {
+    Sanfrancisco,
+    Alaska,
+}
+
+enum Coin {
+    Penny,            //一便士
+    Nickel,           //五美分
+    Dime,             //十美分
+    Quarter(UsState), //二十五美分
+}
+
+fn value_in_coin(coin: Coin) -> u8 {
+    match coin {
+        Coin::Penny => 1,
+        Coin::Nickel => 5,
+        Coin::Dime => 10,
+        Coin::Quarter(state) => {
+            println!("美国的{:?}州用的25美分硬币", state); //美国的Sanfrancisco州用的25美分硬币
+            25
+        }
+    }
+}
+
+fn main() {
+    let q = Coin::Quarter(UsState::Sanfrancisco);
+    println!("{}", value_in_coin(q)); //25
+}
+```
+
+match 必须穷举所有可能的值
+
+```rust
+fn plus_one(x: Option<i32>) -> Option<i32> {
+    match x {
+        //如果不加None的模式匹配就会报错，必须穷举所有可能的值
+        None => None,
+        Some(i) => Some(i + 1),
+    }
+}
+
+fn main() {
+    let one = Some(1);
+    let two = plus_one(one);
+    let none = plus_one(None);
+}
+```
+
+如果不想列出所有可能的值时可以使用_(下划线)通配符，替代其它没列出的值
+
+```rust
+fn plus_one(x: Option<i32>) -> Option<i32> {
+    //不需要穷举所有的可能性了，全部默认返回Some(0)
+    match x {
+        _ => Some(0),
+    }
+}
+
+fn main() {
+    let one = Some(1);
+    let two = plus_one(one);
+    let none = plus_one(None);
+}
+```
+
+#### if let
+
+处理只关心一种匹配而忽略其它匹配的情况
+
+```rust
+fn main() {
+    let v = Some(0u8);
+
+    match v {
+        Some(3) => println!("3"),
+        _ => (), //什么也不做
+    }
+
+    //这两段代码效果完全一致,if let 只关心一种模式匹配，但是放弃了穷举的可能，可以看作是match的语法糖
+    if let Some(3) = v {
+        println!("3");
+    }
+}
+```
+
+也可以使用else来进行其它可能性的返回
+
+```rust
+fn main() {
+    let v = Some(0u8);
+
+    match v {
+        Some(3) => println!("3"),
+        _ => println!("others"),
+    }
+
+    if let Some(3) = v {
+        println!("3");
+    } else {
+        println!("others");
+    }
+}
+```
+
