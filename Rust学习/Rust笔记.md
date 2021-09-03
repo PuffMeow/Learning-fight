@@ -1426,7 +1426,8 @@ mod top_module {
   }
 }
 
-use crate::top_module::inner_module;
+//如果use前面也加上pub叫做重导出，那么外部的代码也可以引入模块到他们自己的作用域
+use crate::top_module::inner_module; 
 
 pub fn test() {
   inner_module::test_fn();
@@ -1465,3 +1466,61 @@ pub fn test() {
   nation_test_fn();
 }
 ```
+
+#### 使用外部包
+
+在前面几章我们引入那个rand包其实已经有过演示了。
+
+- 在Cargo.toml添加依赖的包版本号
+- 使用use将包内的属性引入到作用域中
+
+标准库std也是属于外部包，但是我们不需要修改Cargo.toml的依赖项来包含std
+
+**嵌套包的引用**
+
+```rust
+use std::io;
+use std::io::Write;
+
+//可以替代为
+use std::io::{self, Write}
+----------
+
+use std::cmp::Ordering;
+use std::io;
+//代替为
+use std::{cmp::Ordering, io};
+```
+
+#### 通配符*
+
+使用*可以把路径内所有可以公共访问的属性都引入到该作用域内
+
+比如`use std::*`
+
+但是要**谨慎使用**
+
+应用场景：
+
+- 测试，将所有测试代码同时引入
+- 有时被用于预导入(prelude)模块
+
+#### 将模块拆分到其它文件中
+
+```rust
+// main.rs
+mod top_module;
+
+fn main() {
+    println!("main_module.");
+    println!("{}", top_module::test());
+}
+```
+
+```rust
+// top_module.rs
+pub fn test() -> String {
+    String::from("top_module")
+}
+```
+
