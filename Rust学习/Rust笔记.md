@@ -1302,3 +1302,166 @@ fn main() {
 }
 ```
 
+### 模块系统
+
+**Package（包）、Crate（单元包）、Module（模块）**
+
+- Package(最顶层)：Cargo特性，让你构建、测试、共享Crate
+- Crate(处于Package层级下)：一个模块树，可以产生一个library或可执行文件
+- Module：使用use关键字，让你控制代码的组织、作用域、私有路径。
+- Path：路径为struct、function或module等项命名的方式
+
+**Crate的类型**
+
+- binary(二进制Crate)
+- libary(库Crate)
+
+**Crate Root(单元包的根)**
+
+- 是源代码文件
+- Rust编译器从这里开始，组成Crate的根Module
+
+**一个Package(使用cargo new project-name命令创建出来的那个文件夹就叫Package)**
+
+- 包含1个Cargo.toml，描述如何构建这些Crates
+- 只能包含0-1个libary crate
+- 可以包含任意数量的binary crate
+- 必须至少有一个crate
+
+**如果Package里的src文件夹里有一个main.rs文件，这就是binary crate(二进制单元包)的根入口**。
+
+**如果Package里的src文件夹有lib.rs文件，这就是library crate(库单元包)的根入口。**
+
+- crate名和package名相同
+
+Cargo把crate root文件交给rustc(Rust编译器)来构建library(库)或者binary(二进制文件)。
+
+#### Cargo惯例
+
+- 一个Package可以同时含有src/main.rs和src/lib.rs，名称都和Package名相同
+- 一个Package可以有多个binary crate，源代码文件放在src/bin目录，里面的每个文件都是单独的binary crate
+
+#### Crate的作用
+
+- 将相关功能组合到一个作用域内，便于在项目间进行共享
+- 在Crate中可以定义Module将代码进行分组，提高模块复用性，并且能控制项目的私有性
+
+#### Module
+
+可以理解为文件夹里的文件，也类似于其它语言的命名空间的概念
+
+- 在Crate内创建，使用关键字mod
+- 可以进行嵌套
+- Module里可以进行其它项(struct、enum、常量、trait、函数等)的定义
+
+```rust
+mod top_module {
+    mod inner_module {
+        fn test_fn() {}   
+    }
+}
+```
+
+当前的目录组织结构是这样的
+
+```rust
+└─crate
+    ├─ Cargo.toml
+    ├─ src
+    ├─── main.rs
+    ├─── lib.rs
+    ├───── top_module
+    ├─────── inner_module
+    ├───────── test_fn
+```
+
+src/main.rs和src/lib.rs叫做crate单元包的根，这两个文件(任意一个)的内容形成了crate模块，位于整个模块树根部
+
+#### 路径（Path）
+
+两种形式：
+
+- 绝对路径：从crate root开始找，使用crate名或字面值crate
+- 相对路径：从当前模块开始找，使用self，super或当前模块的标识符
+
+路径至少由一个标识符组成，标识符之间使用::
+
+#### 访问权限
+
+Rust中所有的（函数、方法、stuct、enum、模块mod、变量）默认都是私有的，如需暴露属性出去，可以使用**pub关键字**，
+
+- 父级模块不能访问子模块的私有属性
+
+- 子模块可以使用所有祖先模块中的属性
+
+```rust
+mod top_module {
+  pub mod inner_module {
+    pub fn test_fn() {
+      println!("hello, world");
+    }
+  }
+}
+
+pub fn test() {
+  //使用绝对路径
+  crate::top_module::inner_module::test_fn();
+
+  //使用相对路径
+  top_module::inner_module::test_fn();
+}
+```
+
+#### use关键字
+
+将路径导入到当前的作用域内，遵循私有制原则
+
+```rust
+mod top_module {
+  pub mod inner_module {
+    pub fn test_fn() {
+      println!("hello, world");
+    }
+    fn private_fn() {}
+  }
+}
+
+use crate::top_module::inner_module;
+
+pub fn test() {
+  inner_module::test_fn();
+  //不能引用私有的函数
+  inner_module::private_fn();
+}
+```
+
+#### 标准库
+
+```rust
+//use std::这里有一些标准库。
+//比如下面的写法可以拿到PI的常量值。
+use std::f64::consts::PI;
+```
+
+#### as关键字
+
+存在两个相同的名称，且同样需要导入，我们可以使用 as 关键字为标识符添加别名
+
+```rust
+mod top_module {
+  pub mod inner_module {
+    pub fn test_fn() {
+      println!("hello, world");
+    }
+    fn private_fn() {}
+  }
+}
+
+use crate::top_module::inner_module::test_fn;
+use crate::top_module::inner_module::test_fn as nation_test_fn;
+
+pub fn test() {
+  test_fn();
+  nation_test_fn();
+}
+```
