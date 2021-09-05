@@ -1,6 +1,6 @@
-### Rust官方学习资料
+### 前言
 
-https://www.rust-lang.org/zh-CN/learn。为什么我要学Rust，首先是因为它下到可以写嵌入式编程，上到可以写Web应用，既足够底层，又拥有一定的应用层开发效率，另外作为一个科班出身的，当年学习C++不精，所以现在想通过Rust弥补一下自己的底层应用开发知识，于是便开始了Rust的学习。俗话说的好：学习一个新东西最好的时间就是过去，以及现在。那我们现在就开始！
+为什么我要学Rust，首先是因为它下到可以写嵌入式编程，上到可以写Web应用，既足够底层，又拥有一定的应用层开发效率，另外作为一个科班出身的，当年学习C++不精，所以现在想通过Rust弥补一下自己的底层应用开发知识，于是便开始了Rust的学习。俗话说的好：学习一个新东西最好的时间就是过去，以及现在。那我们现在就开始！
 
 ### Rust特点
 
@@ -17,6 +17,10 @@ https://www.rust-lang.org/zh-CN/learn。为什么我要学Rust，首先是因为
 - 嵌入式
 - 系统编程
 - 游戏开发
+
+### 谁在用？
+
+
 
 ### 安装
 
@@ -1523,4 +1527,725 @@ pub fn test() -> String {
     String::from("top_module")
 }
 ```
+
+### 常见的集合
+
+#### Vector容器
+
+##### 概念
+
+存储在堆内存的数组，可以动态扩容，写法Vec<T>
+
+- 标准库提供
+- 可存储多个值
+- 只能存储相同类型
+- 在内存中连续存放
+
+```rust
+fn main() {
+    //使用泛型显式声明Vec里存储的数据类型
+    let arr: Vec<i32> = Vec::new();
+    
+    //使用初始值创建，使用vec!宏, 编译器可以自动推导出Vec里存储的数据类型
+    let arr2 = vec![1, 2, 3];
+}
+```
+
+##### 插入数据使用push方法
+
+```rust
+fn main() {
+  let mut arr = Vec::new();
+  //往Vec添加数据
+  arr.push(1);
+}
+```
+
+##### 读取值，使用索引或者get方法
+
+```rust
+fn main() {
+  let arr = vec![1, 2, 3, 4, 5];
+  let second = &arr[1];
+  println!("第二个元素是：{}", second); //第二个元素是：2
+
+  //get方法传索引值，使用get时，如果索引值超出范围会比较安全，会走下面的None逻辑
+  match arr.get(1) {
+    Some(second) => println!("能拿到第二个元素:{}", second), //能拿到第二个元素:2
+    None => println!("拿不到第二个元素"),
+  }
+}
+```
+
+##### Vec的所有权借用
+
+```rust
+fn main() {
+  let mut arr = vec![1, 2, 3, 4, 5];
+  let first = &arr[0]; //不可变的引用
+
+  //这里会报错cannot borrow `arr` as mutable because it is also borrowed as immutable
+  arr.push(6);
+
+  println!("第一个元素的值是: {}", first);
+}
+```
+
+为什么这里会报错呢，因为我们first借用的是第一个元素，下面arr.push新添加一个元素，又因为Vec在内存中是连续存放的，可能新添加进来的一个6会遇到地址不够的情况，那就得进行重新分配，得去找另一块连续地址的内存去存放，但是我们的first还是指向的原来的第1个元素的地址，就会出现问题了。
+
+遍历Vec的值并修改里面的每一个元素
+
+```rust
+fn main() {
+  let mut arr = vec![1, 2, 3, 4, 5];
+  for i in &mut arr {
+    //解引用才能去修改值
+    *i += 1;
+    println!("遍历修改后的值是:{}", i);
+  }
+}
+
+// 遍历修改后的值是:2
+// 遍历修改后的值是:3
+// 遍历修改后的值是:4
+// 遍历修改后的值是:5
+// 遍历修改后的值是:6
+```
+
+如果想要在Vec中存储不同的数据类型，可以使用enum
+
+- enum的变体可以附加不同的数据类型
+- enum的变体定义在同一个enum类型下
+
+```rust
+enum ArrType {
+  Int(i32),
+  Float(f32),
+  Text(String),
+}
+
+fn main() {
+  let arr = vec![
+    ArrType::Float(1.2),
+    ArrType::Int(10),
+    ArrType::Text(String::from("hello world"))
+  ]
+}
+```
+
+#### String
+
+##### 概念
+
+Rust中的字符串可能会比较让人困扰，在Rust中它并不简单
+
+- Rust倾向于暴露可能的错误
+- 字符串数据结构复杂
+- 使用了UTF-8编码
+
+字符串是基于byte的集合，里面提供了一些方法能将byte解析为文本。
+
+Rust在核心语言层面只有一种字符串类型：字符串切片str( &str)。它是对存储在其它地方、UTF-8编码的字符串的引用。字符串字面值存储在二进制文件中。
+
+标准库中的String类型：内容可增长、可修改、可获得所有权
+
+通常所说的字符串是String或者&str
+
+##### 创建字符串
+
+其实在这里之前我们就已经有过很多字符串的实践了，比如创建一个字符串`String::new()`。
+
+使用初始值来创建字符串的话可以使用`to_string()`，可用于实现了Display trait的类型，包括字符串字面值。
+
+```rust
+fn main() {
+  //如果直接创建字面量字符串，它的类型是&str。
+  let str = "hello world";
+   
+  //下面两种创建字符串的方法效果是一样的，可根据个人喜好选择写法。
+  //而使用to_string方法，可以将它转变为String类型
+  let str2 = "hello world".to_string();
+  //使用String::from来创建String类型的字符串。
+  let str3 = String::from("hello world");
+}
+```
+
+##### 更新String
+
+- push_str方法：把一个字符串切片附加到String
+
+- push方法：把单个字符附加到String中
+
+- +运算符：这个方法实际上使用了类似于fn add(self, &str) -> String的方法。标准库中的add方法是使用了泛型的，所以这里说是类型于，这个方法只能把&str类型添加到String中，这里我们传入的&s2是String的引用，这个方法使用解引用强制转换将String转换成了字符串切片&str，所以可以调用成功。s1的所有权转移到add函数里，所以add函数执行完s1就失效了。
+
+  ```rust
+  fn main() {
+      let s1 = String::from("hello");
+      let s2 = String::from(" world");
+    
+      let s3 = s1 + &s2;
+      
+      println!("{}", s3); //hello world
+      println!("{}", s1); //s1不能再使用了
+      println!("{}", s2); //s2可以继续使用
+  }
+  ```
+
+- format!宏：连接多个字符串
+
+  ```rust
+  fn main() {
+    let s1 = String::from("打");
+    let s2 = String::from("飞");
+    let s3 = String::from("鸡");
+  
+    let s = format!("{}-{}-{}", s1, s2, s3);
+    println!("{}", s); //打-飞-鸡
+  }
+  ```
+
+##### String类型的索引访问
+
+String类型的内部实现其实就是对Vec<u8>的包装。
+
+String类型不支持索引方式访问，比如`str[0]或者&str[0]`都不能对str字符串进行索引访问。因为索引操作的时间复杂度是O(1)，而String不能保证这个O(1)的时间复杂度，因为它需要去遍历所有内容来确认有多少合法的字符。
+
+Rust中有三种看待字符串的方式：
+
+- 字节
+- 标量值(Unicode标量值)
+- 字形簇(最接近所谓的"字母")：Rust标准库中没有实现，可以使用第三方库
+
+```rust
+fn main() {
+  let s = "中文";
+
+  //这里使用的是字节的概念
+  for i in s.bytes() {
+    println!("{}", i);
+  }
+  // 一个中文用三个字节表示
+  // 228
+  // 184
+  // 173
+  // 230
+  // 150
+  // 135
+
+  //这里使用的是标量值的概念
+  for i in s.chars() {
+    println!("{}", i);
+  }
+
+  // 中
+  // 文
+}
+```
+
+##### 切割String
+
+这里之前其实也讲了，就是字符串切片。在多语言环境中会容易出现问题
+
+```rust
+fn main() {
+  let str = "asdfghjkl";
+  println!("{}", &str[..2]); //as
+}
+```
+
+```rust
+fn main() {
+  let str = "中文";
+  //中
+  println!("{}", &str[..3]);
+  //因为一个中文表示三个字节类似于(a,b,c)(a,b,c)，切割不按照边界切的话就会编译出错
+  //'byte index 4 is not a char boundary; it is inside '文' (bytes 3..6) of `中文`'
+  println!("{}", &str[0..4]); //这里编译报错panicked
+}
+```
+
+#### HashMap
+
+##### 概念
+
+HashMap<K, V>，K是key，V是value，类似于JS的Map。以键值对的形式存储数据，**数据存储在堆中**，HashMap是同构的，就是所有K必须是同种类型，所有V也必须是同种类型。
+
+适用于使用key来寻找值
+
+##### 创建
+
+- 因为HashMap用的比较少，所以不在prelude预导入模块中，所以需要我们手动引入
+
+- 标准库对其支持较少，没有内置的宏来创建HashMap
+
+- 初始化没有数据时需要显式声明类型，不显式声明时可以使用insert方法来添加一条数据，会自动推导出hashMap的类型
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+  let mut map: HashMap<String, i32> = HashMap::new();
+    
+  //或者
+  let mut map2 = HashMap::new();
+  map2.insert(String::from("0"), 100);
+}
+```
+
+##### Collect方法创建HashMap
+
+在元素类型为Tuple的Vector上使用collect方法，可以组建一个HhashMap
+
+- 要求Tuple有两个值，一个作为Key，一个作为Value
+- collect方法可以把数据整合成很多种数据集合类型，包括HashMap，返回值需要显式声明
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+  let colors = vec![String::from("red"), String::from("pink")];
+  let items = vec![10, 20];
+
+  // 遍历items和colors，调用zip方法创建一个元组，就是拉链的意思
+  //这两个Vector像拉链一样拉形成了一个元组的数组，最后使用collect生成hashMap
+  //collect可以生成很多种数据结构，所以必须要在前面显式声明数据类型
+  //两个下划线占位符，Rust能推导出Key和Value的数据类型
+  let map: HashMap<_, _> = items.iter().zip(colors.iter()).collect();
+}
+```
+
+##### HashMap和所有权
+
+- 对于实现了Copy trait的类型(i32等存放在栈中的基础数据类型)，值会被复制到HashMap中
+
+- 对于拥有所有权的值（如String等存在堆中的数据类型），值会被移动，所有权会转移给HashMap
+- 如果将值的引用插入到HashMap中，值本身不移动
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+  let s1 = String::from("hello");
+  let s2 = String::from("world");
+
+  let mut map = HashMap::new();
+  map.insert(s1, s2);
+
+  //因为s1、s2的所有权已经转移到HashMap里了，所以这里的s1和s2就已经失效了
+  //borrow of moved value: `s1`，`s2`
+  //如果上面改成将引用传入，那么s1和s2就不会失效
+  println!("{}, {}", s1, s2);
+}
+```
+
+##### 访问HashMap中的值
+
+get(key: K) -> Option<&V>
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+  let mut map = HashMap::new();
+  map.insert(String::from("red"), 10);
+  map.insert(String::from("pink"), 20);
+
+  let red = String::from("red");
+  let val = map.get(&red);
+
+  match val {
+    Some(s) => println!("{}", s),
+    None => println!("HashMap中没有该值"),
+  }
+}
+```
+
+##### 遍历
+
+```rust
+use std::collections::HashMap;
+
+fn main() {
+  let mut map = HashMap::new();
+  map.insert(String::from("red"), 10);
+  map.insert(String::from("pink"), 20);
+
+  for (k, v) in &map {
+    println!("k: {} , v: {}", k, v);
+  }
+}
+// k: pink , v: 20
+// k: red , v: 10
+```
+
+##### 更新
+
+- HashMap大小可变
+- 每个K只能对应一个V
+
+更新策略：
+
+- 替换原有的V：就是两次插入的键相同时，第二次插入的值会覆盖掉第一次的值
+
+- 添加：HashMap中没有K，那么我们才去插入V，我们需要使用entry方法(检查指定的K是否对应一个V，参数为K，返回值enum Entry代表值是否存在)
+
+  ```rust
+  use std::collections::HashMap;
+  
+  fn main() {
+    let mut map = HashMap::new();
+    map.insert(String::from("red"), 10);
+    map.insert(String::from("pink"), 20);
+  
+    //blue的键不存在时就插入100
+    map.entry(String::from("blue")).or_insert(100);
+  
+    //{"red": 10, "pink": 20, "blue": 100}
+    println!("{:?}", map);
+  }
+  ```
+
+- 基于现有的K更新V：
+
+  ```rust
+  use std::collections::HashMap;
+  
+  fn main() {
+    let text = "hello world today is a good day";
+    let mut map = HashMap::new();
+  
+    //按空格分割的遍历器
+    for word in text.split_whitespace() {
+      //判断遍历到的单词在Map里是否存在，不存在就插入0
+      //这里的count得到的是插入值的引用
+      let count = map.entry(word).or_insert(0);
+      //解引用然后将插入的值+1
+      *count += 1;
+    }
+  
+    // {"day": 1, "is": 1, "world": 1, "hello": 1, "today": 1, "good": 1, "a": 1}
+    println!("{:#?}", map);
+  }
+  ```
+
+##### Hash函数
+
+默认情况下，HashMap使用加密功能强大的Hash函数，可以抵挡拒绝服务(Dos)攻击。
+
+- 它不是可用的最快的Hash算法
+- 但具有更好的安全性
+
+- 可以指定不同的Hasher来切换到另一个函数，Hasher是实现BuildHasher trait的类型
+
+### 错误处理
+
+#### panic!宏 - 不可恢复的错误
+
+Rust的可靠性依赖错误处理，Rust没有类似异常的机制
+
+错误的分类：
+
+- 可恢复：例如文件没找到，可以再次尝试。使用 Result<T, E>
+
+- 不可恢复的错误：例如索引超出范围，使用panic!宏
+
+  当panic!宏执行，程序会打印一个错误信息，并展开、清理调用栈，最后退出程序
+
+为应对panic，展开或中止(abort)调用栈。
+
+- 默认情况下，panic发生时Rust沿着调用栈往回走、清理每个遇到的函数中的数据。或者立即中止调用栈、不进行清理，直接停止程序，内存需要操作系统进行回收。
+
+- 想让二进制文件更小，可以把默认的展开改成中止，在Cargo.toml文件
+
+  ```rust
+  [dependencies]
+  
+  [profile.release]
+  panic = 'abort'
+  ```
+
+手动编写panic，下面这段代码运行cargo run 时会引起panic。数组访问越界的时候也会产生panic
+
+```rust
+fn main() {
+  panic!("crash");
+}
+//thread 'main' panicked at 'crash', src\main.rs:2:3
+//将环境变量设置为RUST_BACKTRACE=1展示回溯信息
+//note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+```
+
+#### Result枚举
+
+```rust
+enum Result<T,E> {
+    //里面有两个变体
+    Ok(T),
+    Err(E),
+}
+```
+
+- T：操作成功的情况下，Ok变体里返回的数据的类型
+- E：操作失败的情况下，Err变体里返回的数据的类型
+
+比如我们打开系统的一个文件，有成功和失败两种情况
+
+```rust
+use std::fs::File;
+
+fn main() {
+  let f = File::open("hello.txt");
+
+  let f = match f {
+    Ok(file) => file,
+    Err(error) => {
+      panic!("文件没找到,错误信息: {:?}", error);
+    }
+  };
+}
+
+//thread 'main' panicked at '文件没找到,错误信息: Os { code: 2, kind: NotFound, message: "系统找不到指定的文件。" }'
+```
+
+#### unwrap方法
+
+match表达式的一种快捷写法，缺点就是不能自定义调试信息
+
+- 如果Result结果是Ok，返回Ok里面的值
+- 如果Result结果是Err，调用panic!宏
+
+上面的那段代码可以像这样写
+
+```rust
+use std::fs::File;
+
+fn main() {
+  let f = File::open("hello.txt").unwrap();
+}
+//thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound, message: "系统找不到指定的文件。" }'
+```
+
+#### expect
+
+可以自定义调试信息
+
+```rust
+use std::fs::File;
+
+fn main() {
+  let f = File::open("hello.txt").expect("找不到文件 hello.txt");
+}
+//thread 'main' panicked at '找不到文件 hello.txt: Os { code: 2, kind: NotFound, message: "系统找不到指定的文件。" }'
+```
+
+#### 传播错误
+
+将错误返回给调用者，像标准库的File::open和File::create等方法的错误都属于传播错误，需要我们自己手动处理
+
+```rust
+use std::fs::File;
+use std::io;
+use std::io::Read;
+
+fn read_str_from_file() -> Result<String, io::Error> {
+  let f = File::open("hello.txt");
+
+  let mut f = match f {
+    Ok(file) => file,
+    Err(err) => return Err(err),
+  };
+
+  let mut s = String::new();
+
+  match f.read_to_string(&mut s) {
+    Ok(_) => Ok(s),
+    Err(e) => Err(e),
+  }
+}
+
+fn main() {
+  //这里就拿到函数里传播出来的错误
+  //thread 'main' panicked at 'called `Result::unwrap()` on an `Err` value: Os { code: 2, kind: NotFound,     //message: "系统找不到指定的文件。" }'
+  let res = read_str_from_file().unwrap();
+}
+```
+
+#### ?运算符
+
+传播错误处理的一种快捷写法（语法糖，效果跟上面完全一样）
+
+```rust
+use std::fs::File;
+use std::io;
+use std::io::Read;
+
+fn read_str_from_file() -> Result<String, io::Error> {
+  let mut f = File::open("hello.txt")?;
+
+  // let mut f = match f {
+  //   Ok(file) => file,
+  //   Err(err) => return Err(err),
+  // };
+
+  let mut s = String::new();
+  f.read_to_string(&mut s)?;
+
+  // match f.read_to_string(&mut s) {
+  //   Ok(_) => Ok(s),
+  //   Err(e) => Err(e),
+  // }
+    
+  Ok(s)
+}
+
+fn main() {
+  let res = read_str_from_file().unwrap();
+}
+```
+
+继续优化简洁，使用链式调用的方式简化代码
+
+```rust
+use std::fs::File;
+use std::io;
+use std::io::Read;
+
+fn read_str_from_file() -> Result<String, io::Error> {
+  let mut s = String::new();
+  File::open("hello.txt")?.read_to_string(&mut s)?;
+  Ok(s)
+}
+
+fn main() {
+  let res = read_str_from_file().unwrap();
+}
+```
+
+#### ?运算符和main函数
+
+?运算符只能用于返回的值类型是Result的函数
+
+- main函数返回类型是()
+- main函数的返回类型也可以是：Result<T, E>
+- Box<dyn Error>是trait对象，理解为任何可能的错误类型
+
+```rust
+use std::error::Error;
+use std::fs::File;
+
+fn main() -> Result<(), Box<dyn Error>> {
+  let f = File::open("hello.txt")?;
+
+  Ok(())
+}
+```
+
+#### 什么时候应该用panic
+
+总体原则
+
+- 在定义一个可能失败的函数时，优先考虑返回Result
+- 某种情况肯定是不可恢复的，那我们就使用panic!
+
+比如说我们编写一个代码库，一些逻辑是肯定会引起不可恢复的，那我们可以使用panic!自己去处理代码错误，其它时候大部分都是要将错误传播出去给调用者自己去处理。
+
+有时候你比编译器知道更多信息的时候，可以确定Result就是Ok:unwrap
+
+```rust
+use std::net::IpAddr;
+
+fn main() {
+  //这里肯定不会出现错误
+  let ip: IpAddr = "127.0.0.1".parse().unwrap();
+}
+```
+
+有时候用户调用我们的函数，传入了无意义的参数，我们可以手动调用panic!去给用户警告
+
+调用外部不可控的代码时，返回非法的状态无法修复，可以调用panic!
+
+### 泛型
+
+#### 概念
+
+提高代码的复用能力。泛型是具体类型或其它属性的抽象代替，可以理解为是类型的一个变量。
+
+#### 泛型函数
+
+我们传入一个泛型，这个泛型的类型其实就是一个变量，比如我们传入一个i32类型的值进去，返回的也是i32类型的值，这里的T相当于一个类型的变量，我们可以传任意数据类型进去
+
+```rust
+fn test<T>(item: T) -> T {
+    item
+}
+```
+
+#### 结构体泛型
+
+```rust
+struct Point<T> {
+  x: T,
+  y: T,
+}
+
+//泛型可以传多个不同的类型，这里的字母一般是由自己定义的
+struct Area<T, U, P> {
+  x: T,
+  y: U,
+  z: P,
+}
+
+fn main() {
+  let point = Point { x: 1, y: 1 };
+  let area = Area {
+    x: 1,
+    y: 1.00,
+    z: "123",
+  };
+}
+```
+
+#### enum中的泛型
+
+可以让枚举的变体拥有泛型数据类型，下面的两个例子就是我们之前提到过的
+
+```rust
+enum Option<T> {
+    Some(T),
+    None,
+}
+
+enum Result<T, E> {
+    Ok(T),
+    Err(E), 
+}
+```
+
+#### 方法中使用泛型
+
+```rust
+struct Point<T> {
+  x: T,
+  y: T,
+}
+
+impl<T> Point<T> {
+  fn getX(&self) -> &T {
+    &self.x
+  }
+}
+
+fn main() {
+  let p = Point { x: 1, y: 2 };
+  // x is: 1
+  println!("x is: {}", p.getX());
+}
+```
+
+- 把T放在impl关键字之后，表示在类型T上实现方法
+- 只针对具体类型实现方法：`impl Point<i32>`
+
+- struct里的泛型参数类型可以和定义的方法的泛型类型参数不同
+
+### Trait
 
