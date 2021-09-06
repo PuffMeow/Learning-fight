@@ -2247,5 +2247,314 @@ fn main() {
 
 - struct里的泛型参数类型可以和定义的方法的泛型类型参数不同
 
-### Trait
+### Trait(特性)
 
+这个也是Rust中最重要的特性之一。
+
+- Trait可以告诉编译器某种类型具有哪些并且可以和其它类型共享的功能
+- 抽象的定义共享行为
+- Trait bounds(约束):泛型类型参数指定为实现了特定行为的类型
+- **Trait其实和其它语言的接口interface很像，但又有区别**
+
+#### 定义trait
+
+把方法签名放一起，来定义实现某种目的所必需的一组行为
+
+- 只有方法签名，没有具体实现
+- 可以有多个方法，每个方法占一行，以分号;结尾
+- 实现该Trait的类型必须提供具体的方法实现
+
+```rust
+pub trait Test {
+  fn test1(&self) -> String;
+  fn test2(&self) -> String;
+}
+
+fn main() {}
+```
+
+#### 在类型上实现trait
+
+与为类型实现方法类似，不同的地方就是`impl XXX for XXX {}`, {}里要对方法的定义进行具体的实现
+
+```rust
+//src/lib.rs
+
+//人或动物的描述信息
+pub trait Description {
+  fn description(&self) -> String;
+}
+
+pub struct People {
+  pub name: String,
+  pub gender: String,
+  pub age: i32,
+  pub height: i32,
+}
+
+impl Description for People {
+  fn description(&self) -> String {
+    format!(
+      "Student description: name:{}-age:{}-gender:{}-height:{}",
+      self.name, self.age, self.gender, self.height
+    )
+  }
+}
+
+pub struct Animal {
+  pub name: String,
+  pub action: String,
+}
+
+impl Description for Animal {
+  fn description(&self) -> String {
+    format!(
+      "Animal description: name:{}-action: {}",
+      self.name, self.action
+    )
+  }
+}
+```
+
+```rust
+// src/main.rs
+//这里的demo是Cargo.toml文件里的[package]的name值
+//把trait和struct引入
+use demo::Description;
+use demo::People;
+
+fn main() {
+  let student = People {
+    name: String::from("大锤"),
+    age: 18,
+    height: 200,
+    gender: String::from("男"),
+  };
+
+  //People: Student description: name:大锤-age:18-gender:男-height:200
+  println!("People: {}", student.description())
+}
+
+```
+
+#### 实现trait的约束
+
+可以在某个类型上实现Trait的前提是，这个类型或者这个Trait是在本地crate里定义的 。
+
+不能为外部类型来实现外部的Trait：
+
+- 这个限制是程序属性的一部分
+- 更具体说是**孤儿规则**，之所以这样命名是因为父类型不存在
+- 这个规则能确保别人不能破坏你的代码，反之亦然，你也不能破坏别人的代码
+- 如果没有这个规则，两个crate可以为同一个类型实现同一个Trait，Rust就不知道用哪个实现了
+- 也就是说不能为第三方库的类型来实现第三方库的Trait
+
+#### 默认行为
+
+- 就是在Trait中的方法可以给默认的实现方式，然后impl trait for struct的时候不需要手动去实现Trait的方法
+
+  ```rust
+  pub trait Description {
+    fn description(&self) -> String {
+      String::from("默认实现")
+    }
+  }
+  
+  pub struct People {
+    pub name: String,
+    pub gender: String,
+    pub age: i32,
+    pub height: i32,
+  }
+  
+  impl Description for People {}
+  ```
+
+- 默认实现的方法也可以调用Trait里的其它方法，即使调用的方法没有默认的实现
+
+  ```rust
+  pub trait Description {
+    fn description(&self) -> String;
+    fn default_fn(&self) -> String {
+      format!(
+        "description and default function test: {}",
+        self.description()
+      )
+    }
+  }
+  
+  pub struct People {
+    pub name: String,
+    pub gender: String,
+    pub age: i32,
+    pub height: i32,
+  }
+  
+  impl Description for People {
+    fn description(&self) -> String {
+      //People: 没有进行默认实现的方法: 大锤, 18, 男, 200
+      format!(
+        "没有进行默认实现的方法: {}, {}, {}, {}",
+        self.name, self.age, self.gender, self.height
+      )
+    }
+  }
+  ```
+
+#### 把trait作为函数参数
+
+- 使用impl Trait语法：适用于简单的情况
+
+  ```rust
+  pub trait Description {
+    fn description(&self) -> String;
+    fn default_fn(&self) -> String {
+      format!(
+        "description and default function test: {}",
+        self.description()
+      )
+    }
+  }
+  
+  pub struct People {
+    pub name: String,
+    pub gender: String,
+    pub age: i32,
+    pub height: i32,
+  }
+  
+  impl Description for People {
+    fn description(&self) -> String {
+      //People: 没有进行默认实现的方法: 大锤, 18, 男, 200
+      format!(
+        "没有进行默认实现的方法: {}, {}, {}, {}",
+        self.name, self.age, self.gender, self.height
+      )
+    }
+  }
+  
+  pub fn test_trait_fn(item: impl Description) {
+    println!("{}", item.description())
+  }
+  ```
+
+- 使用Trait bound语法：适用于复杂的情况，实际就是泛型约束，上面那种方式其实就是这种方式的语法糖
+
+  ```rust
+  //上面的那个方法改写成这样
+  pub fn test_trait_fn<T: Description>(item: T) {
+    println!("{}", item.description())
+  }
+  ```
+
+- 如果实现了多个Trait，可以使用+号连接
+
+  ```rust
+  use std::fmt::Display;
+  
+  ......
+  
+  pub fn test_trait_fn1(item: impl Description + Display) {
+    println!("{}", item.description())
+  }
+  
+  pub fn test_trait_fn2<T: Description + Display>(item: T) {
+    println!("{}", item.description())
+  }
+  ```
+
+- 使用where子句来进行泛型约束，上下两种实现方式是等价的
+
+  ```rust
+  use std::clone::Clone;
+  use std::fmt::{Debug, Display};
+  
+  //test_trait_fn1方法的T类型实现了Description和Display两个Trait，U类型实现了Debug和Clone两个Trait
+  pub fn test_trait_fn1<T: Description + Display, U: Debug + Clone>(item1: T, item2: U) {
+    println!("{}", item1.description())
+  }
+  
+  pub fn test_trait_fn2<T, U>(item1: T, item2: U)
+  where
+    T: Description + Display,
+    U: Debug + Clone,
+  {
+    println!("{}", item1.description())
+  }
+  ```
+
+#### 实现了的Trait作为返回类型
+
+impl Trait只能返回确定的同一种类型，返回可能出现的不同类型代码会报错，比如函数中判断正确时返回People，错误时返回Animal就会报错。
+
+```rust
+//只能返回实现了Description这个Trait
+pub fn test() -> impl Description {
+  People {
+    name: String::from("王大锤"),
+    gender: String::from("男"),
+    age: 18,
+    height: 200,
+  }
+}
+```
+
+#### 看个例子，获取数组里的最大的一项
+
+T是实现了PartialOrd和Clone两个Trait的类型
+
+```rust
+fn largest<T: PartialOrd + Clone>(list: &[T]) -> &T {
+  let mut largest = &list[0];
+
+  for item in list.iter() {
+    if item > largest {
+      largest = item
+    }
+  }
+
+  largest
+}
+
+fn main() {
+  let str = vec![String::from("hello"), String::from("world")];
+  let res = largest(&str);
+
+  println!("Largest is {}", res)
+}
+```
+
+#### 使用Trait Bound有条件的实现方法
+
+- 在使用泛型类型参数的impl块上使用Trait bound，我们可以有条件的为实现了特定Trait的类型来实现方法。下面这段代码的意思就是对于Pair来说，不论T是什么类型的时候都会有new这个方法，而只有T的类型是PartialOrd和Display的时候，它才会有cmp_display这个方法。
+
+  ```rust
+  use std::fmt::Display;
+  
+  struct Pair<T> {
+    x: T,
+    y: T,
+  }
+  
+  impl<T> Pair<T> {
+    fn new(x: T, y: T) -> Self {
+      Self { x, y }
+    }
+  }
+  
+  impl<T: PartialOrd + Display> Pair<T> {
+    fn cmp_display(&self) {
+      if (self.x > self.y) {
+        println!("x > y")
+      } else {
+        println!("x < y")
+      }
+    }
+  }
+  
+  fn main() {}
+  ```
+
+- 也可以为实现了其它Trait的任意类型有条件的实现某个Trait
+
+- 为满足Trait Bound的所有类型上实现Trait叫做覆盖实现。

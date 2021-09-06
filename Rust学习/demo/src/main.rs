@@ -1,16 +1,24 @@
-struct Point<T> {
+use std::fmt::Display;
+
+struct Pair<T> {
   x: T,
   y: T,
 }
 
-impl<T> Point<T> {
-  fn getX(&self) -> &T {
-    &self.x
+impl<T> Pair<T> {
+  fn new(x: T, y: T) -> Self {
+    Self { x, y }
   }
 }
 
-fn main() {
-  let p = Point { x: 1, y: 2 };
-  // x is: 1
-  println!("x is: {}", p.getX());
+impl<T: PartialOrd + Display> Pair<T> {
+  fn cmp_display(&self) {
+    if (self.x > self.y) {
+      println!("x > y")
+    } else {
+      println!("x < y")
+    }
+  }
 }
+
+fn main() {}
