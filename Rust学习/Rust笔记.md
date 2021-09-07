@@ -2558,3 +2558,330 @@ fn main() {
 - 也可以为实现了其它Trait的任意类型有条件的实现某个Trait
 
 - 为满足Trait Bound的所有类型上实现Trait叫做覆盖实现。
+
+### 生命周期
+
+#### 概念
+
+Rust的又一个重要特性之一。Rust里每个引用都有自己的生命周期，生命周期就是让引用保持有效的作用域，大多数时候生命周期是隐式的、可以被推断出来的。当引用的生命周期可能以不同的方式互相关联时，就需要手动标注生命周期。**生命周期的主要目标就是避免悬垂引用**。
+
+下面的代码报错借用的值没有足够长的生命周期，这是因为代码执行完里面的花括号作用域后，x已经被释放了，x的引用不能赋值给r。这里面其实用到了借用检查器：用来比较作用域来判断所有的借用是否合法
+
+```rust
+fn main() {
+  let r;
+  {
+    let x = 32;
+    //报错：borrowed value does not live long enough
+    r = &x;
+  }
+
+  println!("{}", r);
+}
+```
+
+下面再来看个生命周期的例子
+
+```rust
+fn main() {
+  {
+    // 'a生命周期，'a生命周期覆盖了'b生命周期。'b的生命周期比较短，所以不能把值借用给'a生命周期上的变量
+    let r;
+    {
+      // `b生命周期
+      let x = 32;
+      //报错：borrowed value does not live long enough
+      r = &x;
+    }
+
+    println!("{}", r);
+  }
+}
+```
+
+```rust
+fn main() {
+  //像这样是没问题的，因为x的生命周期包含了r的生命周期
+  let x = 32;
+  let r = &x;
+
+  println!("{}", r);
+}
+```
+
+#### 生命周期泛型例子
+
+看个生命周期的相关例子，产生错误的原因是编译器不知道传入参数str1或者str2的生命周期，借用检查器也不知道返回类型的生命周期是跟哪个有关系。这里看不懂就先暂时看着，后面会解释
+
+```rust
+fn main() {
+  let s1 = String::from("hello world");
+  let s2 = "I am Wang Dachui";
+
+  let longest = get_longest(&s1.as_str(), &s2);
+
+  println!("{}", longest)
+}
+
+// 报错：返回类型包括一个借用的值，但是签名不知道它是从str1借用还是str2借用的，可以加上生命周期参数
+// help: this function's return type contains a borrowed value, but the signature does not say whether it is borrowed from `str1` or `str2`
+// help: consider introducing a named lifetime parameter
+//类似于↓这样
+// fn get_longest<'a>(str1: &'a str, str2: &'a str) -> &'a str {
+fn get_longest(str1: &str, str2: &str) -> &str {
+  if (str1.len() > str2.len()) {
+    str1
+  } else {
+    str2
+  }
+}
+```
+
+```rust
+fn main() {
+  let s1 = String::from("hello world");
+  let s2 = "I am Wang Dachui";
+
+  let longest = get_longest(&s1.as_str(), &s2);
+
+  println!("{}", longest)
+}
+
+//标注生命周期泛型，然后像这样写程序就能正常运行了。
+//这里的意思是：get_longest函数有一个'a的生命周期标注，它有两个参数str1和str2都是字符串切片类型引用，
+//这两个参数的存活时间必须不能短于'a，而对于返回值，也不能短于'a这个生命周期
+//其实就是为了告诉编译器，生命周期不一样时不能给你编译通过
+//这里的'a其实能获得的生命周期就是str1和str2中比较短的那一个，取交集
+fn get_longest<'a>(str1: &'a str, str2: &'a str) -> &'a str {
+  if (str1.len() > str2.len()) {
+    str1
+  } else {
+    str2
+  }
+}
+```
+
+#### 生命周期标注语法
+
+- 生命周期的标注不会改变引用的生命周期长度
+- 当指定了泛型生命周期参数，函数可以接收带有任何生命周期的引用
+- 生命周期的标注：描述了多个引用的生命周期之间的关系，但不影响生命周期
+
+##### 语法
+
+生命周期参数名：以'开头，通常以全小写开头且很短，很多人喜欢用'a做生命周期标注的名称
+
+生命周期标注位置：在引用的&符号后面，使用空格将标注和引用类型分开
+
+例子：
+
+```rust
+&i32 //一个引用
+&'a i32 //带有显式生命周期的引用
+&'a mut i32 //带有显式生命周期的可变引用	
+```
+
+单个生命周期的标注没有什么意义
+
+##### 函数签名中的生命周期标注
+
+泛型生命周期参数声明在：函数名和参数列表之间的<>里
+
+生命周期'a的实际生命周期就是str1和str2中比较小的那个。
+
+```rust
+fn main() {
+  let s1 = String::from("hello world");
+  let longest;
+  {
+    let s2 = String::from("I am Wang Dachui");
+    //这里s2发生报错： borrowed value does not live long enough
+    //借用的值没有总够长的生命周期
+    longest = get_longest(&s1.as_str(), &s2.as_str());
+  }
+
+  //s2在离开作用域后已经被drop函数回收，所以不能够被借用
+  println!("{}", longest)
+}
+
+fn get_longest<'a>(str1: &'a str, str2: &'a str) -> &'a str {
+  if (str1.len() > str2.len()) {
+    str1
+  } else {
+    str2
+  }
+}
+```
+
+#### 深入理解生命周期
+
+- 指定生命周期参数的方式依赖于函数所做的事情
+
+  ```rust
+  //这个函数返回了，所以生命周期只和str1有关，跟str2无关，就可以能把str2的生命周期标注给去了
+  fn get_longest<'a>(str1: &'a str, str2: &str) -> &'a str {
+    str1
+  }
+  ```
+
+- 从函数返回引用时，返回类型的生命周期参数需要与其中一个参数的生命周期匹配
+
+- 如果返回的引用没有指向任何参数，那么它只能引用函数内创建的值：这就是垂悬引用，这个值在函数结束的时候就离开了作用域 
+
+  ```rust
+  fn test<'a>(str1: &'a str, str2: &'a str) -> &'a str {
+    let res = String::from("hello");
+    //报错：returns a value referencing data owned by the current function
+      //返回了一个当前函数拥有的相关数据
+    res.as_str()
+  }
+  
+  //如果想返回内部的值给外部使用，那么就不返回引用
+  fn test<'a>(str1: &'a str, str2: &'a str) -> String {
+    let res = String::from("hello");
+    res
+  }
+  ```
+
+#### Struct定义中的生命周期标注
+
+Struct内可以包括：
+
+- 基本数据类型
+- 引用：需要在每个引用上添加生命周期标注
+
+```rust
+struct ImportantExcerpt<'a> {
+  //part引用存活的时间必须要比实例的存活时间要长
+  //只要实例存在就会一直对part有引用
+  part: &'a str,
+}
+
+fn main() {
+  let novel = String::from("很久很久以前，有一个...");
+
+  let first_sentence = novel.split("，").next().expect("找不到，");
+
+  let i = ImportantExcerpt {
+    //这里part生命周期其实就是从first_sentence创建到离开main作用域
+    //它的生命周期比i的生命周期要长
+    part: first_sentence,
+  };
+}
+```
+
+##### 生命周期的省略概念
+
+在Rust引用分析中所编入的模式称为生命周期的省略规则，也就是一些可以预测的生命周期已经被写到编译器中，我们就不需要手动去写生命周期标注了。
+
+##### 输入、输出生命周期的概念
+
+生命周期在函数/方法的参数中，那么就叫做输入生命周期。
+
+输入出现在函数/方法的返回值中，就叫做输出生命周期。
+
+##### 生命周期省略的三个规则
+
+编译器使用3个规则在没有显式标注生命周期的情况下，来确定引用的生命周期，适用于fn定义和impl块。如果编译器应用完这三个规则之后，仍然无法确定生命周期的引用就会报错。规则1应用于输入生命周期，规则2、3应用于输出生命周期。
+
+- 规则1：每个引用类型的参数都有自己的生命周期
+- 规则2：如果只有1个输入生命周期参数，那么该生命周期被赋给所有的输出生命周期参数
+- 规则3：如果有多个输入生命周期参数，但其中一个是&self或&mut self(方法才有self)，那么self的生命周期会被赋给所有的输出生命周期参数
+
+例子1：
+
+假如我们是编译器，那么应用这三条规则后会发生什么
+
+```rust
+//我们写的代码↓
+fn example(s: &str) -> &str {}
+//应用第一条规则后
+fn example<'a>(s: &'a str) -> &str {}
+//应用第二条规则后
+fn example<'a>(s: &'a str) -> &'a str {}
+```
+
+例子2：
+
+```rust
+//我们写的代码↓
+fn example2(x: &str, y: &str) -> &str {}
+//应用第一条规则后
+fn example2<'a, 'b>(x: &'a str, y: &'b str) -> &str {}
+//第二条规则不适用，因为函数有两个参数
+//第三条规则也不适用，因为这不是一个方法
+//应用完三条规则后，编译器也不能确定生命周期，然后就会报错
+```
+
+##### 方法定义中的生命周期标注
+
+第三条规则只适用于方法
+
+在哪声明和使用生命周期，依赖于：生命周期参数是否和字段、方法的参数或返回值有关
+
+struct字段的生命周期名：
+
+- 在impl后声明
+- 在struct名后使用
+- 这些生命周期是struct类型的一部分
+
+impl块内的方法签名中：
+
+- 引用必须绑定于struct字段引用的生命周期，或者引用是独立的也可以
+- **生命周期省略规则经常使得方法中的生命周期标注不是必须的**
+
+下面的代码编译没问题，根据第三条规则，self的生命周期会被赋给所有的输出生命周期参数
+
+```rust
+struct ImportantExcerpt<'a> {
+  part: &'a str,
+}
+
+impl<'a> ImportantExcerpt<'a> {
+  fn example(&self) -> i32 {
+    3
+  }
+
+  fn example2(&self, str1: &str, str2: &str) -> &str {
+    self.part
+  }
+}
+
+fn main() {}
+```
+
+##### 静态生命周期'static
+
+’static是一个特殊的生命周期：表示整个程序的持续时间，比如所有的字符串字面值都拥有'static生命周期。
+
+比如：
+
+```rust
+//它存储在二进制文件中，所以它总是可用的
+let s: &'static str = "I have a dream";
+```
+
+为引用指定'static生命周期前要思考：是否需要引用在程序整个生命周期中存活？
+
+#### 泛型参数类型、Trait Bound、生命周期综合例子
+
+```rust
+use std::fmt::Display;
+
+fn longest_mark<'a, T>(x: &'a str, y: &'a str, mark: T) -> &'a str
+where
+  T: Display,
+{
+  println!("mark is {}", mark);
+  if (x.len() > y.len()) {
+    x
+  } else {
+    y
+  }
+}
+
+fn main() {}
+```
+
+
+
