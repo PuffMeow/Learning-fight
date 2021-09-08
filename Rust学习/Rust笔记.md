@@ -2883,5 +2883,213 @@ where
 fn main() {}
 ```
 
+### 编写测试
 
+#### 测试(就是一个函数)
 
+验证非测试代码的功能是否和预期一致，测试体通常执行3个操作：
+
+- 准备数据/状态
+- 运行被测试代码
+- 断言(assert)结果
+
+#### 测试函数
+
+测试函数需要使用test属性(Attribute)进行标注，Attribute就是一段Rust代码元数据
+
+- 在函数上加`#[test]`就可以把函数变成测试函数
+- Rust也允许测试私有函数，外部的私有函数可以在测试模块里进行调用测试。
+
+#### 运行测试
+
+使用cargo test命令运行所有测试函数，Rust会构建一个Test runner可执行文件，它会运行标注了test的函数，并报告其是否成功。
+
+当使用cargo创建library项目的时候，会生成一个test module，里面有一个test函数，你可以添加任意数量的test module或函数
+
+创建库项目使用`cargo new demo --lib`，然后我们可以看到lib.rs文件中
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() {
+        assert_eq!(2 + 2, 4);
+    }
+}
+```
+
+#### 测试失败时
+
+- 测试函数panic就表示失败
+
+- 每个测试运行在一个新的线程
+- 当主线程看见某个测试线程挂了，那么测试标记为失败
+
+#### 断言
+
+assert!宏，来自标准库，用来确定某个状态是否为true
+
+- true：测试通过
+- panic：测试失败
+
+assert_eq!(equal)断言相等和assert_ne!(not equal)断言不相等这两个宏用来测试相等性，断言失败时会使用debug格式自动打印出两个参数的值，所以就要求参数实现了PartialEq和Debug Traits（所有基本类型和标准库里大部分的类型都实现了这两个Trait）
+
+#### 添加自定义错误信息
+
+可以向assert!、assert_eq!、assert_ne!添加可选的自定义消息，这些自定义消息和失败消息都会打印出来。
+
+- assert!：第一个参数必填，自定义信息作为第二个参数
+- assert_eq!、assert_ne!：第一二个参数必填，第三个参数作为自定义信息
+- 自定义信息参数会传给format!宏，可以使用{}占位符
+
+#### 检查Panic
+
+使用should_panic标注检查是否发生了恐慌，可以验证代码在特定情况是否发生了panic，函数发生panic测试会通过，下面的例子就会测试通过。
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[should_panic]
+    fn it_works() {
+        panic!("Panic")
+    }
+}
+```
+
+让should_panic更加精确，使用expected参数，用来指定失败的消息中是否包含指定的文字。下面的例子就会检查通过，如果把num改成50以上，就会检查失败
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    #[should_panic(expected = "发生panic时值小于50")]
+    fn it_works() {
+        let num = 10;
+        if num < 50 {
+            panic!("发生panic时值小于50");
+        } else {
+            panic!("发生panic时值大于50");
+        }
+    }
+}
+```
+
+#### 使用Result<T,E>测试
+
+不需要使用should_panic标注
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn it_works() -> Result<(), String> {
+        if 1 + 1 == 2 {
+            Ok(())
+        } else {
+            Err(String::from("失败"))
+        }
+    }
+}
+```
+
+#### 控制测试怎么运行
+
+- 改变cargo test的行为，可以添加命令行参数
+- **默认行为是并行使用多线程执行所有测试**，不显示所有输出，使得读取和测试结果相关的输出更容易
+- 命令行参数：比如cargo test --help可以查看帮助，使用cargo test -- --help可以查看所有和--命令有关的帮助信息
+
+并行运行测试：默认使用多线程，优点是运行快，但是要确保测试函数之间不会相互依赖，并且不依赖于某个共享状态(环境、环境变量、工作目录等)。
+
+--test-threads参数：传递给二进制文件，不想以并行方式运行测试，或者想对线程进行更细粒的控制，后边紧跟着线程的数量
+
+`cargo test --test-threads=1`
+
+默认情况下，测试代码中使用到了println!，只会在测试失败时打印出来，测试成功的不会打印。如果想要测试成功的时候也打印，就使用 --show-output参数
+
+#### 按名称运行测试子集
+
+选择要运行的测试，将测试的名称（一个或者多个）作为cargo test的参数
+
+运行测试单个：指定测试名`cargo test other`
+
+运行多个测试：指定测试名的一部分（模块名也可以）`cargo test test_`会匹配带有test_的测试函数名
+
+```rust
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_eq() {
+        assert_eq!(4, 4)
+    }
+
+    #[test]
+    fn test_nq() {
+        assert_ne!(3, 4)
+    }
+
+    #[test]
+    fn other() {
+        assert!(true)
+    }
+}
+```
+
+#### 忽略某些测试用例
+
+一般是对于耗时的测试用例，我们可以忽略掉，运行其它的测试。
+
+可以使用**ignore(attribute)**属性标注`#[ignore]`，而想要运行被忽略的测试，可以使用`cargo test -- --ignored`
+
+#### 测试分类
+
+测试分类为两类：一类是单元测试、一类是集成测试
+
+- 单元测试：小、专注，一次只对一个模块进行隔离的测试，可以测试private接口
+- 集成测试：在库的外部，和其它代码外部代码一样使用你的代码，只能使用public接口，可能在每个测试中使用到多个模块
+
+##### 单元测试
+
+使用`#[cfg(test)]`标注，在test模块上标注的`#[cfg(test)]`，只有运行cargo test才会编译和运行代码，运行cargo build的时候不会。cfg指的是configuration(配置)
+
+##### 集成测试
+
+它不需要#[cfg(test)]标注，集成测试完全位于被测试库的外部。目的是测试被测试库的多个部分是否能正确的一起工作，集成测试覆盖率是很重要的指标。
+
+创建和src目录并列的tests目录，tests目录下每个测试文件都是一个单独的crate，**cargo在编译时会自动寻找tests目录**，将里面每一个文件都单独处理为一个单独的包。集成测试需要将被测试的库导入
+
+```rust
+// src/lib.rs
+pub fn add(num1: i32, num2: i32) -> i32 {
+    num1 + num2
+}
+```
+
+```rust
+// tests/add_test.rs
+use demo;
+
+#[test]
+fn it_add_test() {
+  assert_eq!(4, demo::add(2, 2));
+}
+
+//然后可以执行cargo test进行测试
+```
+
+运行一个指定的集成测试：`cargo test 函数名 `
+
+运行某个测试文件内的所有测试：`cargo test --test 文件名`
+
+集成测试的子模块：
+
+tests目录下每个文件都被单独编译成crate，这些文件不共享行为。如果想要在集成测试文件内使用一些工具类辅助函数，那么我们就可以把文件抽离tests的根目录，比如在tests目录下新建一个common目录，里面编写工具函数，然后在对应的测试文件中引入这个模块使用。cargo编译测试的时候就不会去编译common目录里的文件。
+
+##### 针对binary crate的集成测试
+
+如果项目是二进制包，只有src/main.rs而没有src/lib.rs，这时候就不可以在tests目录下创建集成测试
+
+- 不能在tests目录下创建集成测试
+- 无法把main.rs的函数导入作用域
+- 只有library crate才能暴露函数给其它的crate使用
+- binary crate意味着需要独立运行
