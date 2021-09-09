@@ -1,50 +1,56 @@
-use std::clone::Clone;
-use std::fmt::{Debug, Display};
+use std::error::Error;
+use std::fs; //文件系统相关模块
 
-pub trait Description {
-  fn description(&self) -> String;
-  fn default_fn(&self) -> String {
-    format!(
-      "description and default function test: {}",
-      self.description()
-    )
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+  let contents = fs::read_to_string(config.file_name)?;
+  for line in search(&config.query, &contents) {
+    println!("{}", line);
+  }
+
+  Ok(())
+}
+
+pub struct Config {
+  pub query: String,
+  pub file_name: String,
+}
+
+impl Config {
+  pub fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Ok(Config { query, file_name })
   }
 }
 
-pub struct People {
-  pub name: String,
-  pub gender: String,
-  pub age: i32,
-  pub height: i32,
-}
-
-impl Description for People {
-  fn description(&self) -> String {
-    //People: 没有进行默认实现的方法: 大锤, 18, 男, 200
-    format!(
-      "没有进行默认实现的方法: {}, {}, {}, {}",
-      self.name, self.age, self.gender, self.height
-    )
+pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+  let mut result = Vec::new();
+  for line in contents.lines() {
+    if line.contains(query) {
+      result.push(line);
+    }
   }
+
+  result
 }
 
-pub fn test_trait_fn1<T: Description + Display, U: Debug + Clone>(item1: T, item2: U) {
-  println!("{}", item1.description())
-}
+#[cfg(test)]
+mod tests {
+  use super::*;
 
-pub fn test_trait_fn2<T, U>(item1: T, item2: U)
-where
-  T: Description + Display,
-  U: Debug + Clone,
-{
-  println!("{}", item1.description())
-}
+  #[test]
+  fn one_result() {
+    let query = "小小鸟";
+    //注意前面不要留空格
+    let content = "\
+我是一只小小小小鸟
+想要飞却怎么也飞不高
+~~~~~~";
 
-pub fn test() -> impl Description {
-  People {
-    name: String::from("王大锤"),
-    gender: String::from("男"),
-    age: 18,
-    height: 200,
+    //这里可以测试通过
+    assert_eq!(vec!["我是一只小小小小鸟"], search(query, content));
   }
 }

@@ -1,15 +1,18 @@
-use std::fmt::Display;
+use demo::Config; //引入Config块
+use std::env; //环境变量相关的模块
+use std::process;
 
-fn longest_mark<'a, T>(x: &'a str, y: &'a str, mark: T) -> &'a str
-where
-  T: Display,
-{
-  println!("mark is {}", mark);
-  if (x.len() > y.len()) {
-    x
-  } else {
-    y
-  }
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  let config = Config::new(&args).unwrap_or_else(|err| {
+    println!("解析参数时发生了错误");
+    process::exit(1);
+  });
+
+  //demo是项目名称
+  if let Err(e) = demo::run(config) {
+    println!("程序发生错误：{}", e);
+    process::exit(1);
+  };
 }
-
-fn main() {}

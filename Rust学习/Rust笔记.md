@@ -3093,3 +3093,359 @@ tests目录下每个文件都被单独编译成crate，这些文件不共享行�
 - 无法把main.rs的函数导入作用域
 - 只有library crate才能暴露函数给其它的crate使用
 - binary crate意味着需要独立运行
+
+
+
+### 编写命令行工具
+
+#### 接收命令行参数
+
+```rust
+use std::env; //环境变量相关的模块
+
+fn main() {
+  //args方法返回一个迭代器，collect方法会产生一个集合。
+  //比如我们输入cargo run 123 abcd，这里就打印["target\\debug\\demo.exe", "123", "abcd"]
+  let args: Vec<String> = env::args().collect();
+
+  println!("{:?}", args)
+}
+```
+
+我们想要实现的效果就是`cargo run abcd text.txt`，在text.txt文件中查找abcd字符串
+
+```rust
+use std::env; //环境变量相关的模块
+
+fn main() {
+  //args方法返回一个迭代器，collect方法会产生一个集合。
+  //比如我们输入cargo run 123 abcd，这里就打印["target\\debug\\demo.exe", "123", "abcd"]
+  let args: Vec<String> = env::args().collect();
+
+  let query = &args[1];
+  let file_name = &args[2];
+
+  //在text.txt文件中寻找abcd字符串
+  println!("在{}文件中寻找{}字符串", file_name, query);
+}
+```
+
+#### 读取文件
+
+我们在和src同级的根目录下创建`text.txt文件`，里面随便输入一些内容
+
+```json
+我是一只小小小小鸟
+想要飞却怎么也飞不高
+~~~~~~
+```
+
+```rust
+use std::env; //环境变量相关的模块
+use std::fs; //文件系统相关模块
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  let query = &args[1];
+  let file_name = &args[2];
+
+  println!("在{}文件中寻找{}字符串", file_name, query);
+
+  let contents = fs::read_to_string(file_name).expect("读取文件出现了一些错误");
+
+  // 在text.txt文件中寻找小小小小鸟字符串
+  // 读取到的内容是：
+  // 我是一只小小小小鸟
+  // 想要飞却怎么也飞不高
+  // ~~~~~~
+  println!("读取到的内容是：\n{}", contents);
+}
+```
+
+#### 模块化抽取
+
+二进制程序关注点分离的原则：
+
+- 将程序拆分为main.rs和lib.rs，将业务逻辑放入到lib.rs
+- 当命令行解析逻辑较少时，将它放到main.rs也行
+- 当命令行解析逻辑变复杂时，需要将它从main.rs提取到lib.rs
+
+经过拆分抽取后，我们希望main.rs保留的功能：
+
+- 使用参数值调用命令行解析逻辑
+- 进行其它配置
+- 调用lib.rs中的run函数
+- 处理run函数中可能会出现的错误
+
+```rust
+use std::env; //环境变量相关的模块
+use std::fs; //文件系统相关模块
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  let config = Config::new(&args);
+
+  let contents = fs::read_to_string(config.file_name).expect("读取文件出现了一些错误");
+
+  println!("读取到的内容是：\n{}", contents);
+}
+
+struct Config {
+  query: String,
+  file_name: String,
+}
+
+impl Config {
+  fn new(args: &[String]) -> Config {
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Config { query, file_name }
+  }
+}
+```
+
+#### 错误处理优化
+
+我们想要在程序出错的时候，将错误信息抛出去给用户，但又不想要出现太多关于Rust本身给我们抛出的错误信息，所以就需要去自定义最终的错误信息输入
+
+```rust
+use std::env; //环境变量相关的模块
+use std::fs; //文件系统相关模块
+use std::process; //进程相关模块
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  //unwrap_or_else方法，如果在前面的方法调用成功就会返回结果
+  //如果前面的方法调用失败就会返回一个闭包(一个匿名函数)，使用|err|表示
+  let config = Config::new(&args).unwrap_or_else(|err| {
+    //程序出错时只会打印这一句话作为输出
+    println!("解析参数时发生了错误");
+    //调用process::exit退出进程方法，程序的执行会立即终止，参数1作为程序退出的状态码
+    process::exit(1);
+  });
+
+  let contents = fs::read_to_string(config.file_name).expect("读取文件出现了一些错误");
+
+  println!("读取到的内容是：\n{}", contents);
+}
+
+struct Config {
+  query: String,
+  file_name: String,
+}
+
+impl Config {
+  fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Ok(Config { query, file_name })
+  }
+}
+```
+
+#### 抽取业务逻辑
+
+在src目录下新建lib.rs文件，然后将一些逻辑代码抽取过去。另外我们需要将业务逻辑先单独抽取到一个run函数中。
+
+```rust
+use std::env; //环境变量相关的模块
+use std::error::Error;
+use std::fs; //文件系统相关模块
+use std::process;
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  //unwrap_or_else方法，如果在前面的方法调用成功就会返回结果
+  //如果前面的方法调用失败就会返回一个闭包(一个匿名函数)，使用|err|表示
+  let config = Config::new(&args).unwrap_or_else(|err| {
+    println!("解析参数时发生了错误");
+    //调用process::exit方法，程序的执行会立即终止，参数1作为程序退出的状态码
+    process::exit(1);
+  });
+
+  //这里的Err是run的返回类型Result的一个变体
+  if let Err(e) = run(config) {
+    println!("程序发生错误：{}", e);
+    process::exit(1);
+  };
+}
+
+// Box<dyn Error>,表示的是一个返回了实现Error这个trait的类型。后面细讲。
+fn run(config: Config) -> Result<(), Box<dyn Error>> {
+  let contents = fs::read_to_string(config.file_name)?;
+
+  println!("读取到的内容是：\n{}", contents);
+
+  Ok(())
+}
+
+struct Config {
+  query: String,
+  file_name: String,
+}
+
+impl Config {
+  fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Ok(Config { query, file_name })
+  }
+}
+```
+
+将run函数的业务逻辑抽取之后，我们就要对代码进行拆分到不同文件中了。
+
+```rust
+// src/lib.rs
+
+use std::error::Error;
+use std::fs; //文件系统相关模块
+
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+  let contents = fs::read_to_string(config.file_name)?;
+
+  println!("读取到的内容是：\n{}", contents);
+
+  Ok(())
+}
+
+pub struct Config {
+  pub query: String,
+  pub file_name: String,
+}
+
+impl Config {
+  pub fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Ok(Config { query, file_name })
+  }
+}
+```
+
+```rust
+// src/main.rs
+
+use demo::Config; //引入Config块
+use std::env; //环境变量相关的模块
+use std::process;
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  let config = Config::new(&args).unwrap_or_else(|err| {
+    println!("解析参数时发生了错误");
+    process::exit(1);
+  });
+
+  //demo是项目名称
+  if let Err(e) = demo::run(config) {
+    println!("程序发生错误：{}", e);
+    process::exit(1);
+  };
+}
+```
+
+#### 测试驱动开发(TDD)
+
+这种方法就是我们先编写测试用例，然后再去编辑实际逻辑，也就是用测试去驱动我们的开发。
+
+- 编写一个会失败的测试，运行该测试，确保它是按照预期的原因失败
+- 编写或修改刚好足够的代码，让新测试通过
+- 重构刚刚添加或修改的代码，确保测试会始终通过
+
+- 返回步骤1，继续
+
+看下我们最终编写的代码：
+
+```rust
+// src/lib.rs
+use std::error::Error;
+use std::fs; //文件系统相关模块
+
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+  let contents = fs::read_to_string(config.file_name)?;
+  for line in search(&config.query, &contents) {
+    println!("{}", line);
+  }
+
+  Ok(())
+}
+
+pub struct Config {
+  pub query: String,
+  pub file_name: String,
+}
+
+impl Config {
+  pub fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    Ok(Config { query, file_name })
+  }
+}
+
+pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+  let mut result = Vec::new();
+  for line in contents.lines() {
+    if line.contains(query) {
+      result.push(line);
+    }
+  }
+
+  result
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn one_result() {
+    let query = "小小鸟";
+    //注意前面不要留空格
+    let content = "\
+我是一只小小小小鸟
+想要飞却怎么也飞不高
+~~~~~~";
+
+    //这里可以测试通过
+    assert_eq!(vec!["我是一只小小小小鸟"], search(query, content));
+  }
+}
+```
+
+这里编写的测试用例通过后，我们就可以运行我们的测试命令。
+
+比如我们在根目录下的text.txt文件中放入了这些字符串
+
+```json
+我是一只小小小小鸟
+想要飞却怎么也飞不高
+~~~~~~
+```
+
+然后我们想要搜索某个字符串就去运行
+
+```rust
+cargo run 小小鸟 text.txt
+```
+
+最后我们的代码给我们打印出来的就是`我是一只小小小小鸟`，找到了包含了某个字符串的某一行内容。
+
