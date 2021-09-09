@@ -1971,9 +1971,13 @@ fn main() {
   panic!("crash");
 }
 //thread 'main' panicked at 'crash', src\main.rs:2:3
-//将环境变量设置为RUST_BACKTRACE=1展示回溯信息
 //note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
 ```
+
+- 将环境变量设置为RUST_BACKTRACE=1展示回溯信息
+- Mac中直接执行RUST_BACKTRACE=1
+- windows在cmd中执行 set RUST_BACKTRACE=1
+- windows在powershell中执行 $env:RUST_BACKTRACE=1
 
 #### Result枚举
 
@@ -3369,6 +3373,31 @@ fn main() {
 
 - 返回步骤1，继续
 
+我们先编写一个测试用例，然后再去进行相关的代码开发
+
+```rust
+// src/lib.rs
+
+#[cfg(test)]
+mod tests {
+  //引入模块外部的内容
+  use super::*;
+
+  #[test]
+  fn one_result() {
+    let query = "小小鸟";
+    //注意前面不要留空格
+    let content = "\
+我是一只小小小小鸟
+想要飞却怎么也飞不高
+~~~~~~";
+
+    //这里可以测试通过
+    assert_eq!(vec!["我是一只小小小小鸟"], search(query, content));
+  }
+}
+```
+
 看下我们最终编写的代码：
 
 ```rust
@@ -3378,6 +3407,7 @@ use std::fs; //文件系统相关模块
 
 pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
   let contents = fs::read_to_string(config.file_name)?;
+  //修改
   for line in search(&config.query, &contents) {
     println!("{}", line);
   }
@@ -3448,4 +3478,170 @@ cargo run 小小鸟 text.txt
 ```
 
 最后我们的代码给我们打印出来的就是`我是一只小小小小鸟`，找到了包含了某个字符串的某一行内容。
+
+#### 使用环境变量
+
+比如我们想要对英文进行搜索的时候，希望可以区分大小写或者不区分，就需要使用上环境变量了
+
+```rust
+use std::env;
+use std::error::Error;
+use std::fs; //文件系统相关模块
+
+pub fn run(config: Config) -> Result<(), Box<dyn Error>> {
+  let contents = fs::read_to_string(config.file_name)?;
+  println!("{}", !config.case_sensitive);
+  let results = if !config.case_sensitive {
+    search(&config.query, &contents)
+  } else {
+    search_case_insensitive(&config.query, &contents)
+  };
+  for line in results {
+    println!("{}", line);
+  }
+
+  Ok(())
+}
+
+pub struct Config {
+  pub query: String,
+  pub file_name: String,
+  pub case_sensitive: bool,
+}
+
+impl Config {
+  pub fn new(args: &[String]) -> Result<Config, &str> {
+    if args.len() < 3 {
+      return Err("传入的参数值数量不够");
+    }
+    let query = args[1].clone();
+    let file_name = args[2].clone();
+    //使用CASE_INSENSITIVE环境变量，意思就是不区分大小写
+    let case_sensitive = env::var("CASE_INSENSITIVE").is_err();
+    Ok(Config {
+      query,
+      file_name,
+      case_sensitive,
+    })
+  }
+}
+
+pub fn search<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+  let mut result = Vec::new();
+  for line in contents.lines() {
+    if line.contains(query) {
+      result.push(line);
+    }
+  }
+
+  result
+}
+
+//为了不区分大小写，我们把搜索和要搜索的内容全部转换成小写就可以了
+pub fn search_case_insensitive<'a>(query: &str, contents: &'a str) -> Vec<&'a str> {
+  let mut result = Vec::new();
+  let query = query.to_lowercase();
+  for line in contents.lines() {
+    if line.to_lowercase().contains(&query) {
+      result.push(line);
+    }
+  }
+
+  result
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  //区分大小写
+  #[test]
+  fn case_sensitive() {
+    let query = "fly";
+    //注意前面不要留空格
+    let content = "\
+I am a little bird.
+Thought I want to fly.
+I can't fly hight.
+Fly into the sky.
+~~~~~~";
+
+    //这里可以测试通过
+    assert_eq!(
+      vec!["Thought I want to fly.", "I can't fly hight."],
+      search(query, content)
+    );
+  }
+
+  //不区分大小写
+  #[test]
+  fn case_insensitive() {
+    let query = "FLY";
+    //注意前面不要留空格
+    let content = "\
+I am a little bird.
+Thought I want to fly.
+I can't fly hight.
+Fly into the sky.
+~~~~~~";
+
+    //这里可以测试通过
+    assert_eq!(
+      vec![
+        "Thought I want to fly.",
+        "I can't fly hight.",
+        "Fly into the sky."
+      ],
+      search_case_insensitive(query, content)
+    );
+  }
+}
+```
+
+然后在命令行中输入，就可以看到是大小写不敏感的
+
+```
+windows：
+set CASE_INSENSITIVE=1
+cargo run T text.txt
+
+Mac
+CASE_INSENSITIVE=1
+cargo run T text.txt
+```
+
+#### 将错误信息写入到标准错误而不是标准输出
+
+- 标准输出：stdout- println!
+- 标准错误：stderr- eprintln!
+
+我们把main.rs里的打印换成eprintln!
+
+```rust
+// src/main.rs
+use demo::Config; //引入Config块
+use std::env; //环境变量相关的模块
+use std::process;
+
+fn main() {
+  let args: Vec<String> = env::args().collect();
+
+  let config = Config::new(&args).unwrap_or_else(|err| {
+    eprintln!("解析参数时发生了错误");
+    process::exit(1);
+  });
+
+  //demo是项目名称
+  if let Err(e) = demo::run(config) {
+    eprintln!("程序发生错误：{}", e);
+    process::exit(1);
+  };
+}
+```
+
+然后我们执行命令，这个命令的意思就是让我们把最终的标准输出写入到output.txt文件中。而我们上面替换的epintln!的内容不会写入到文件中。
+
+```rust
+cargo run > output.txt
+```
 

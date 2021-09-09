@@ -6,13 +6,13 @@ fn main() {
   let args: Vec<String> = env::args().collect();
 
   let config = Config::new(&args).unwrap_or_else(|err| {
-    println!("解析参数时发生了错误");
+    eprintln!("解析参数时发生了错误");
     process::exit(1);
   });
 
   //demo是项目名称
   if let Err(e) = demo::run(config) {
-    println!("程序发生错误：{}", e);
+    eprintln!("程序发生错误：{}", e);
     process::exit(1);
   };
 }
