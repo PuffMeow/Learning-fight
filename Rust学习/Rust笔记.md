@@ -3645,3 +3645,226 @@ fn main() {
 cargo run > output.txt
 ```
 
+### 闭包(closure)
+
+#### 概念
+
+函数式语言的特性：迭代器和闭包。
+
+闭包是啥？就是可以捕获其所在环境的匿名函数
+
+特点：
+
+- 是匿名函数
+- 可以保存赋值给变量、作为参数
+- 可以在一个地方创建闭包、然后在另一个上下文中调用闭包来完成运算
+- 可以从定义的作用域中捕获值
+
+```rust
+fn main() {
+  let test_closure = |num| {
+    println!("这里是在闭包匿名函数内部，传入的值是:{}", num);
+    num + 1
+  };
+
+  //在外面调用闭包匿名函数，得到的结果是:2
+  println!("在外面调用闭包匿名函数，得到的结果是:{}", test_closure(1))
+}
+```
+
+#### 闭包的类型推断
+
+- 闭包不强制要求标注参数和返回值的类型   
+
+- 闭包通常很短小，只在狭小的上下文空间内工作，编译器通常能判断出类型
+- 也可以手动的添加类型
+
+函数和闭包的定义语法
+
+```rust
+fn add_one(x: u32) -> u32 { x + 1 }
+
+//闭包
+let add_one_closure = |x: u32| -> u32 { x + 1 }; 
+//或者省去参数
+let add_one_closure2 = |x|  x + 1;
+```
+
+闭包的定义最终只会为参数/返回值推断出唯一具体的类型，后面使用不能再修改类型。
+
+```rust
+fn main() {
+  let test_closure = |x| x;
+
+  let s = test_closure(String::from("闭包测试"));
+  //这里会报错，因为闭包已经绑定了String类型，不能再修改了
+  let n = test_closure(1);
+}
+```
+
+#### 使用闭包进行记忆化/延迟计算
+
+创建一个struct，它持有闭包及其调用的结果。
+
+- 只会在需要结果时才会去执行该闭包
+- 可以缓存结果
+
+#### 如何让结构体持有闭包
+
+struct的定义需要知道所有字段的类型，就需要指明里面的闭包的类型。每个闭包实例都拥有自己唯一的匿名类型，即使两个闭包签名完全一样，这两个实例也是两个类型。所以要在结构体使用闭包，**就需要用到泛型和Trait Bound**。
+
+#### Fn trait
+
+Fn traits由标准库提供，所有的闭包都实现了以下trait之一：
+
+- Fn
+- FnMut
+- FnOnce
+
+```rust
+//这就是一个闭包结构体。
+//一开始value的值是空的，一旦执行过一次calculation这个闭包
+//value就会把得到的值给缓存起来，以后再次执行时直接返回这个值
+struct Cacher<T>
+where
+  T: Fn(u32) -> u32,
+{
+  calculation: T,
+  value: Option<u32>,
+}
+
+impl<T> Cacher<T>
+where
+  T: Fn(u32) -> u32,
+{
+  fn new(calculation: T) -> Cacher<T> {
+    Cacher {
+      calculation,
+      value: None,
+    }
+  }
+
+  fn value(&mut self, arg: u32) -> u32 {
+    //判断self.value是否有值，如果有就直接返回这个值，
+    //如果没有值，就说明闭包没执行过，那么就执行这个闭包，并传参数进去，
+    //执行的结果封装到Some里赋值给self.value，并把执行结果返回
+    match self.value {
+      Some(v) => v,
+      None => {
+        let v = (self.calculation)(arg);
+        self.value = Some(v);
+        v
+      }
+    }
+  }
+}
+
+fn main() {
+  let mut add_one = Cacher::new(|num| num + 1);
+
+  //第一次执行闭包后将值缓存了起来，以后都会返回缓存的值
+  // 调用add_one的值是：2
+  // 调用add_one的值是：2
+  // 调用add_one的值是：2
+  println!("调用add_one的值是：{}", add_one.value(1));
+  println!("调用add_one的值是：{}", add_one.value(2));
+  println!("调用add_one的值是：{}", add_one.value(3));
+}
+```
+
+而针对闭包每次执行都返回一样的值，可以使用hashMap来将结果给保存，然后arg作为key，闭包执行的结果作为value。
+
+针对这个闭包每次只能接收一个u32类型和返回一个u32类型，我们可以把它改造成泛型。
+
+#### 使用闭包捕获环境
+
+闭包可以访问定义它的作用域内的变量，而普通函数则不能。
+
+```rust
+//这就是一个闭包结构体。
+//一开始value的值是空的，一旦执行过一次calculation这个闭包
+//value就会把得到的值给缓存起来，以后再次执行时直接返回这个值
+struct Cacher<T>
+where
+  T: Fn(u32) -> u32,
+{
+  calculation: T,
+  value: Option<u32>,
+}
+
+impl<T> Cacher<T>
+where
+  T: Fn(u32) -> u32,
+{
+  fn new(calculation: T) -> Cacher<T> {
+    Cacher {
+      calculation,
+      value: None,
+    }
+  }
+
+  fn value(&mut self, arg: u32) -> u32 {
+    //判断self.value是否有值，如果有就直接返回这个值，
+    //如果没有值，就说明闭包没执行过，那么就执行这个闭包，并传参数进去，
+    //执行的结果封装到Some里赋值给self.value，并把执行结果返回
+    match self.value {
+      Some(v) => v,
+      None => {
+        let v = (self.calculation)(arg);
+        self.value = Some(v);
+        v
+      }
+    }
+  }
+}
+
+fn main() {
+  let x = 1;
+
+  fn is_equal(y: i32) -> bool {
+    //报错：can't capture dynamic environment in a fn item
+    //不能在函数内捕获动态环境
+    y == x
+  }
+
+  //执行正常，里面可以获取到外面的变量，但是会产生额外的内存开销
+  let is_equal_closure = |y: i32| -> bool { y == x };
+}
+```
+
+#### 闭包从所在环境捕获值的方式
+
+和函数获得参数的三种方式一样：
+
+- 取得所有权：FnOnce
+- 可变借用：FnMut
+- 不可变借用：Fn
+
+创建闭包时，通过闭包对环境值的使用，Rust推断出具体使用哪个Trait：
+
+- 所有闭包都实现了FnOnce
+- 没有移动捕获变量的实现了FnMut
+- 无需可变访问捕获变量的闭包实现了Fn
+- 所有实现了Fn的闭包都实现了FnMut，所有实现了FnMut的闭包也都实现了FnOnce
+
+#### move关键字
+
+在参数列表前使用move关键字，可以强制闭包取得它所使用环境值的所有权，当将闭包传递给新线程以移动数据使其归新线程所有时，这个技术最为有用。
+
+```rust
+fn main() {
+  let x = vec![1, 2, 3, 4];
+
+  let test_closure = move |y| x == y;
+
+  let y = vec![1, 2, 3, 4];
+  println!("闭包调用的值：{}", test_closure(y));
+
+  //报错：value moved into closure here，值的所有权已经被闭包夺去了
+  println!("x:{:?}", x);
+} 
+```
+
+#### 最佳实践
+
+当指定Fn trait bound之一时，首先使用Fn，基于闭包体里的情况，如果需要使用FnMut或者 FnOnce时编译器会告诉你。

@@ -1,18 +1,11 @@
-use demo::Config; //引入Config块
-use std::env; //环境变量相关的模块
-use std::process;
-
 fn main() {
-  let args: Vec<String> = env::args().collect();
+  let x = vec![1, 2, 3, 4];
 
-  let config = Config::new(&args).unwrap_or_else(|err| {
-    eprintln!("解析参数时发生了错误");
-    process::exit(1);
-  });
+  let test_closure = move |y| x == y;
 
-  //demo是项目名称
-  if let Err(e) = demo::run(config) {
-    eprintln!("程序发生错误：{}", e);
-    process::exit(1);
-  };
+  let y = vec![1, 2, 3, 4];
+  println!("闭包调用的值：{}", test_closure(y));
+
+  //报错：value moved into closure here，值的所有权已经被闭包夺去了
+  println!("x:{:?}", x);
 }
