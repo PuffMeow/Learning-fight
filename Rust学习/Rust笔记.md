@@ -3868,3 +3868,36 @@ fn main() {
 #### 最佳实践
 
 当指定Fn trait bound之一时，首先使用Fn，基于闭包体里的情况，如果需要使用FnMut或者 FnOnce时编译器会告诉你。
+
+### 迭代器
+
+#### 概念
+
+- 迭代器模式：对一系列项执行某些任务
+- 迭代器负责：遍历每个项、确定遍历何时完成
+
+Rust的迭代器是惰性的，除非调用消费迭代器的方法，否则迭代器本身没任何效果。
+
+#### Iterator trait
+
+所有迭代器都实现了这个Trait，Iterator trait定义于标准库。定义大概如下
+
+```rust
+pub trait Iterator {
+    type Item;
+    fn next(&mut slef) -> Option<Self::Item>;
+    ...
+}
+```
+
+type Item 和 Self::Item定义了与该Trait关联的类型。实现Iterator trait需要定义一个Item类型，它用于next方法的返回类型(迭代器的返回类型)。这个trait仅要求实现next方法：
+
+- 该方法每次返回迭代器里的一个项
+- 返回结果包裹在Som中
+- 迭代结束返回None
+
+#### 几个迭代的方法
+
+- iter方法：在不可变引用上创建迭代器
+- into_iter方法：创建的迭代器会获得所有权
+- iter_mut方法：迭代可变的引用
