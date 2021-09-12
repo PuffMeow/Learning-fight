@@ -3896,8 +3896,530 @@ type Item 和 Self::Item定义了与该Trait关联的类型。实现Iterator tra
 - 返回结果包裹在Som中
 - 迭代结束返回None
 
+```rust
+//测试通过
+#[cfg(test)]
+#[test]
+fn test() {
+  let arr = vec![1, 2, 3, 4];
+  //声明为可变的，因为next会消耗一个值
+  let mut iter_test = arr.iter();
+
+  assert_eq!(iter_test.next(), Some(&arr[0]));
+  assert_eq!(iter_test.next(), Some(&arr[1]));
+  assert_eq!(iter_test.next(), Some(&arr[2]));
+  assert_eq!(iter_test.next(), Some(&arr[3]));
+}
+```
+
 #### 几个迭代的方法
 
 - iter方法：在不可变引用上创建迭代器
 - into_iter方法：创建的迭代器会获得所有权
 - iter_mut方法：迭代可变的引用
+
+#### 消耗迭代器的方法
+
+在标准库中，Iterator trait	有一些带默认实现的方法。
+
+其中有一些方法会调用next方法，实现Iterator trait时必须实现next方法的原因之一。
+
+调用next的方法叫做“消耗型适配器”，因为调用它们会消耗迭代器里的值，相当于一个个吃掉它们。
+
+比如sum方法，就会消耗完迭代器，它会取得迭代器的所有权，通过反复调用next方法，遍历所有元素，每次迭代，把当前的元素添加到一个总和里，迭代结束后返回总和。
+
+```rust
+#[cfg(test)]
+#[test]
+fn test() {
+  let arr = vec![1, 2, 3, 4];
+  let iter_test = arr.iter();
+
+  let sum: i32 = iter_test.sum();
+
+  //加起来总和为10，测试通过
+  assert_eq!(sum, 10);
+}
+```
+
+#### 产生其它迭代器的方法
+
+定义在Iterator trait上的另一些方法叫做“迭代器适配器”，它们可以把迭代器转化为不同种类的迭代器。
+
+可以通过链式调用使用多个迭代器适配器来执行复杂的操作，这种调用可读性比较高。
+
+例如map方法，可以接收一个闭包，闭包作用于每个元素，最后产生一个新的迭代器(有点像JS里面的map方法)。
+
+```rust
+#[cfg(test)]
+#[test]
+fn test() {
+  let arr = vec![1, 2, 3, 4];
+
+  //collect方法是消耗型适配器，能将迭代器给收集起来放到某个类型的集合中
+  let arr2: Vec<_> = arr.iter().map(|x| x + 1).collect();
+
+  //测试通过，将arr里每一项都加了1
+  assert_eq!(vec![2, 3, 4, 5], arr2)
+}
+```
+
+#### 闭包捕获环境
+
+filter方法：一个适配器迭代器(也是有点像JS里的filter方法)
+
+- 它接收一个闭包作为参数 
+- 这个闭包在遍历迭代器每个元素时，返回bool类型
+- 如果闭包返回true，当前元素会包含在filter产生的迭代器中
+- 如果闭包返回false，当前元素就不会包含在filter产生的迭代器中
+
+```rust
+// src/lib.rs
+#[derive(PartialEq, Debug)]
+struct Clothes {
+  size: u32,
+}
+
+//找到适合我的尺寸的衣服
+fn clothes_fit_me(clothes: Vec<Clothes>, my_size: u32) -> Vec<Clothes> {
+  clothes.into_iter().filter(|x| x.size == my_size).collect()
+}
+
+#[cfg(test)]
+#[test]
+fn test() {
+  let arr: Vec<Clothes> = vec![Clothes { size: 10 }, Clothes { size: 15 }];
+  assert_eq!(clothes_fit_me(arr, 10), vec![Clothes { size: 10 }]);
+}
+```
+
+#### 创建自定义迭代器
+
+使用Iterator trait来创建自定义迭代器，主要就是要去实现next方法
+
+```rust
+struct Counter {
+  count: u32,
+}
+
+impl Counter {
+  fn new() -> Counter {
+    Counter { count: 0 }
+  }
+}
+
+//自定义迭代器
+impl Iterator for Counter {
+  //type方法后面会讲到
+  type Item = u32;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    if self.count < 3 {
+      //小于3时每次迭代将值加1并返回这个值
+      self.count += 1;
+      Some(self.count)
+    } else {
+      None
+    }
+  }
+}
+
+#[cfg(test)]
+#[test]
+fn test() {
+  let mut counter = Counter::new();
+
+  //测试通过
+  assert_eq!(counter.next(), Some(1));
+  assert_eq!(counter.next(), Some(2));
+  assert_eq!(counter.next(), Some(3));
+  assert_eq!(counter.next(), None);
+}
+
+
+#[test]
+fn test_other_iterator() {
+  //这里相当于[1,2,3]和[2,3]通过zip拉起来形成一个元组，然后map后得到的结果是[2, 6]
+  //再通过filter后得到[6]，再通过sum就是返回6了
+  let sum: u32 = Counter::new()
+    .zip(Counter::new().skip(1))
+    .map(|(a, b)| a * b)
+    .filter(|x| x % 3 == 0)
+    .sum();
+
+  assert_eq!(sum, 6)
+}
+```
+
+#### 零成本抽象
+
+使用迭代器写循环会比手写循环的效率高一些。
+
+### Cargo发布
+
+#### 通过release profile(发布配置)来自定义构建
+
+- cargo本身预定义了
+- 也可以自定义，使用不同配置，对代码编译拥有更多的控制权
+- 每个Profile的配置都独立于其它的profile
+
+Cargo具有两种主要的Profile：
+
+- dev profile:适用于开发，cargo build
+- release profile:适用于发布，cargo build --release
+
+自定义Profile的配置：
+
+在Cargo.toml里面添加[profile.xxx]区域，比如[profile.release]，可以在里面覆盖默认配置的子集，通常只需要写需要覆盖的默认配置就行。下面是例子，对开发和生产环境的编译代码进行不同程度的优化，等级越高越花费时间，但是优化的代码也越好。
+
+```rust
+[package]
+name = "demo"
+version = "0.1.0"
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+# opt-level决定了编译的时候对代码进行什么程度的优化，值是从0到3
+[profile.dev]
+opt-level = 0
+
+[profile.release]
+opt-level = 3
+```
+
+关于Cargo的更多相关信息可以[查看这里的官方文档](https://doc.rust-lang.org/cargo/index.html)
+
+#### 如何在`https://crates.io/`上发布自己的库？
+
+crates.io网站可以下载别人的库或者发布自己的库给别人用，跟npm官网差不多，它会分发已经注册了的包，托管开源代码。
+
+文档注释：用于生成项目的HTML文档，显式公共API的文档注释，给别人解释如何使用API。文档注释使用///，三个斜线。语法支持Markdown的语法。
+
+```rust
+/// Add One to the given number
+/// # Example：
+/// ```
+/// let num = demo::add_one(5);
+/// assert_eq!(num, 6);
+/// ```
+pub fn add_one(x: i32) -> i32 {
+  x + 1
+}
+```
+
+#### 生成HTML文档的命令
+
+```rust
+cargo doc
+
+# 生成文档并自动在浏览器打开
+cargo doc --open 
+```
+
+它会运行rustdoc工具(Rust安装包自带)
+
+常用的Doc章节：
+
+- \# Examples
+
+- 其它常用的章节：- Panics(函数可能发生Panic的场景)、- Errors(如果函数返回Result枚举，描述可能的错误种类，以及可导致出错的条件)、- Safety(如果函数处于unsafe调用，就应该解释函数unsafe的原因，以及调用者确保的使用前提)
+
+#### 文档注释作为测试
+
+文档注释中的示例代码块，运行cargo test时，会将文档注释中的示例代码作为测试来运行
+
+#### 为包含注释的项添加文档注释
+
+使用符号//!，这类注释通常描述crate和模块：
+
+- crate root(按惯例src/lib.rs)
+- 一个模块内，将crate或模块作为一个整体进行记录
+
+比如说我们有一个库，那么这个库的作用是干嘛的，就可以用//!来描述，一般这段描述就是放在src/lib.rs的顶部
+
+```rust
+//! # 测试专用库 
+//! 这个库是用来测试的
+//! 测试用的标题
+```
+
+#### pub use
+
+使用pub use导出方便使用的公共API。
+
+问题所在：crate的程序结构在开发时对开发者很合理，但对于它的使用者来说不够方便。开发者通常会把程序结构分为很多层，使用者想找某个层级深的结构的类型很费劲：
+
+麻烦：my_crate::some_module::another_module::UsefulType;
+
+方便：my_crate::UsefulType;
+
+解决方法：
+
+- 不需要重新组织内部代码结构
+- 使用pub use关键字：可以重新导出，创建一个和内部私有结构不同的对外公共结构
+
+```rust
+// src/lib.rs
+
+pub mod utils {
+  pub fn test_add_one(x: i32) -> i32 {
+    x + 1
+  }
+}
+```
+
+```rust
+// src/main.rs
+
+//可以看到这里使用了三层的导入结构，如果想要缩短就可以在lib.rs里使用pub use导出
+use demo::utils::test_add_one;
+
+fn main() {
+  let x = test_add_one(1);
+  println!("{}", x);
+}
+```
+
+在lib.rs中将模块导出使用pub use关键字进行重导出
+
+```rust
+// src/lib.rs
+pub use utils::test_add_one;
+
+pub mod utils {
+  pub fn test_add_one(x: i32) -> i32 {
+    x + 1
+  }
+}
+```
+
+```rust
+// src/main.rs
+
+//缩短了导入的代码
+use demo::test_add_one;
+
+fn main() {
+  let x = test_add_one(1);
+  println!("{}", x);
+}
+```
+
+#### 创建账号
+
+发布自己的crate之前，需要在[crates.io](https://crates.io/)网站中创建账号并且取得API token，可以使用github账号登陆。
+
+- 进入网站后，点击右上角的Log in Github并授权。
+- 点击头像，选中Account Settings
+- 拉到底部，看到API Access旁边的New Token，输入Token name
+- 得到一个token。在控制台输入cargo login 你得到的token。然后API token会被保存到你的本地~/.cargo/credentials文件下
+- 如果不小心泄露了token，可以登录网站去进行撤销，并重新生成token
+- 发布包之前也得去Account Settings里去填写你的邮箱地址
+
+#### 添加包信息
+
+发布crate之前，需要在Cargo.toml的[package]区域添加一些关于包的相关信息。
+
+- name:包名(唯一的)
+- description:会出现在crate搜索的结果中
+- license:许可证标识值提供（到http://spdx.org/licenses/查找)，多个许可之间用OR隔开
+- version:版本号
+- author:作者名
+
+```rust
+cargo publish
+```
+
+运行该命令发布你的包。crate一旦发布，就是永久性的：该版本不能覆盖，代码不能删除。因为有些项目会依赖到你的包的，如果你的包删了那不就出大事情了？
+
+如果发布已经存在crate的新版本，需要修改Cargo.toml里的version值，再进行重新发布，再执行`cargo publish`发布。
+
+#### 撤回版本
+
+不可以删除crate之前的版本，但是可以撤回。
+
+使用该命令去撤回：
+
+```rust
+cargo yank --vers 1.0(版本号)
+```
+
+取消撤回的命令：
+
+```rust
+cargo yank --vers 1.0 --undo
+```
+
+撤回命令可以防止其它项目把它作为新的依赖，防止新项目依赖于这个版本，而已经依赖了这个版本的项目则可以继续下载它作为依赖。
+
+- 所有已经产生Cargo.lock的项目都不会被中止
+- 任何将来生成的Cargo.lock文件都不会使用被yank的版本
+
+#### Workspaces(工作空间)
+
+##### 概念
+
+- 帮助管理多个互相关联且需要协同开发的crate
+- 一套共享同一个Cargo.lock和输出文件夹的包
+
+##### 创建工作空间
+
+- 新建一个空的add文件夹，在vscode中打开它，然后新建一个Cargo.toml文件，里面写上内容，表示我们要创建一个叫做adder的工作区域
+
+  ```rust
+  [workspace]
+  members = [
+      "adder"
+  ]
+  ```
+
+- 然后在add文件夹之下运行`cargo new adder`，然后就可以开始workspace的开发了，此时运行`cargo build`命令，会在add根目录下生成target和Cargo.lock文件，而不是在adder文件夹里生成，target存放所有成员的产出物，即使你进入到adder文件夹里去执行`cargo build`命令，它也是会把编译产出物打包到根目录的target中。
+
+- 接下来，我们添加第二个成员，它是一个库crate。修改wokspace里面的members
+
+  ```rust
+  [workspace]
+  members = [
+      "adder",
+      "add-one"
+  ]
+  ```
+
+  然后在add目录下执行命令`cargo new add-one --lib`，生成一个库crate。然后在里面的src/lib.rs中编写调用代码。
+
+  ```rust
+  pub fn add_one(x: i32) -> i32 {
+      x + 1
+  }
+  ```
+
+- 接下来我们的adder工作区需要依赖到add-one这个库里的add_one这个函数，那我们就去adder的Cargo.toml里修改dependences
+
+  ```rust
+  # adder/Cargo.toml
+  [package]
+  name = "adder"
+  version = "0.1.0"
+  edition = "2018"
+  
+  [dependencies]
+  add-one = { path = "../add-one" }
+  ```
+
+  然后我们就可以在adder里的main.rs中调用这个库函数了
+
+  ```rust
+  use add_one::add_one;
+  
+  fn main() {
+      let two = add_one(1);
+      //打印结果：2
+      println!("打印结果：{}", two);
+  }
+  ```
+
+##### 工作空间内依赖外部的crate
+
+工作空间内只有一个Cargo.lock文件，在工作空间的顶层目录。这是为了保证：
+
+- 工作空间内所有crate使用的依赖的版本号相同
+- 工作空间内所有的crate相互兼容
+
+##### 测试
+
+在工作空间内运行cargo test会一次性运行工作空间内所有的test测试。如果需要指定测试某一个工作区，可以使用下面的命令：
+
+```rust
+cargo test -p add-one
+```
+
+##### 发布
+
+如果需要发布包，需要单独进入到对应的文件目录下去执行cargo publish，只能对每个包单独发布。
+
+#### 从Crate.io安装二进制crate
+
+命令：
+
+```rust
+cargo install crate名称
+```
+
+来源：https://crates.io
+
+限制：只能安装具有二进制目标的crate。
+
+二进制crate指的是一个可以运行的程序，由拥有src/main.rs或其它被指定为二进制文件的crate生成
+
+##### cargo install
+
+这个命令安装的二进制存放在根目录的bin文件夹中，如果用rustup安装的Rust，没有任何自定义配置，那么二进制存放的目录就是$HOME/.cargo/bin，但是要确保该目录在环境变量$PATH中。
+
+Windows系统查看环境变量，在控制台中输入：
+
+```rust
+echo %PATH%
+```
+
+其它操作系统如Mac的查看环境变量是在控制台输入：
+
+```
+echo $PATH
+```
+
+##### 使用自定义命令扩展cargo
+
+如果环境变量中存在某个二进制是cargo something，那么就可以像子命令一样去运行
+
+```
+cargo something
+```
+
+另外，我们可以通过下面的命令去查找出相关的cargo的子命令，这样设计的好处是我们可以使用cargo install来扩展我们的cargo，像内置工具一样来运行
+
+```
+cargo --list
+```
+
+### 智能指针
+
+#### 指针概念
+
+指针：一个变量在内存中包含的是一个地址（指向其它数据）
+
+Rust中最常见的指针是“引用”，使用&表示，借用它指向的值，没有其余的开销，它也是最常见的指针类型。
+
+#### 智能指针概念
+
+行为和指针类型、拥有额外的元数据和功能
+
+引用计数智能指针类型：通过记录所有者的数量，使一份数据被多个所有者同时持有，并在没有任何所有者时自动清理数据
+
+引用和智能指针的不同：
+
+- 引用：借用数据
+- 智能指针：很多时候拥有它所指向的数据
+
+#### 例子
+
+我们之前使用到过的String和Vec<T>都是智能指针，它们都拥有一片内存区域，且允许用户对其操作，还拥有元数据（例如容量）、可以提供额外的功能或保障（比如String保障其数据是合法的UTF-8编码）
+
+#### 实现
+
+通常使用struct来实现，并且实现了Deref和Drop这两个trait
+
+- Deref trait：允许智能指针struct的实例像引用一样使用
+- Drop trait：允许你自定义当智能指针实例走出作用域时的代码
+
+#### 使用Box<T>指向堆上的数据
+
+Box<T>是最简单的智能指针：允许在堆上存储数据而不是栈上存储，栈上是指向堆数据的指针，它没有性能开销，也没有其它额外的功能。 它也实现了Deref trait和Drop trait（这两个东西后面具体讲）
+
+##### 使用场景
+
+- 编译时，某类型的大小无法确定。但使用该类型时，上下文却要知道它的确切大小。
+- 当你有大量数据，想移交所有权时，但需要确保在操作时数据不会被复制
+- 使用某个值时，你只关心它是否实现了特定的trait，而不关心它的具体类型。
