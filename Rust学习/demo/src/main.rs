@@ -1,11 +1,27 @@
-use crate::List::{Cons, Nil};
+use std::mem::drop;
 
-fn main() {
-    //形成类似于这样的一个链表结构： 1->2->3->null
-    let list = Cons(1, Box::new(Cons(2, Box::new(Cons(3, Box::new(Nil))))));
+struct CustomSmartPointer {
+    data: String,
 }
 
-enum List {
-    Cons(i32, Box<List>),
-    Nil,
+impl Drop for CustomSmartPointer {
+    fn drop(&mut self) {
+        println!("释放数据:{}", self.data);
+    }
+}
+
+fn main() {
+    let a = CustomSmartPointer {
+        data: String::from("测试1"),
+    };
+    //提前drop掉a的值
+    drop(a);
+    let b = CustomSmartPointer {
+        data: String::from("测试2"),
+    };
+
+    // 释放数据:测试1
+    // 自定义智能指针创建
+    // 释放数据:测试2
+    println!("自定义智能指针创建");
 }

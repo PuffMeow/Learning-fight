@@ -4476,3 +4476,226 @@ enum List {
 }
 ```
 
+#### Deref trait
+
+Deref(defeference解引用的意思)，实现Deref trait可以使我们可以自定义解引用运算符*的行为。通过Defer trait，智能指针可以像常规引用一样来处理。
+
+##### 解引用运算符
+
+解引用运算符也可以理解成取地址运算符，就是去拿到对应的内存地址里的值。
+
+```rust
+// src/lib.rs
+
+#[test]
+fn test() {
+  let x = 5;
+  // y指向x的引用
+  let y = &x;
+
+  //将y解引用获取它的值
+  assert_eq!(x, *y);
+}
+```
+
+##### 把Box<T>当作引用
+
+Box<T>可以代替上述引用，上面的例子可以改写成这样
+
+```rust
+// src/lib.rs
+#[test]
+fn test() {
+  let x = 5;
+  let y = Box::new(5);
+
+  //将y解引用获取它的值
+  assert_eq!(x, *y);
+}
+```
+
+##### 自定义智能指针
+
+自定义智能指针需要实现标准库中Deref trait中要求我们实现的deref方法，该方法借用self，返回一个指向内部数据的引用。
+
+可以代码编写完成之后运行`cargo run`看看是否有问题，这里我们自己实现了一个智能指针
+
+```rust
+use std::ops::Deref;
+
+struct MyBox<T>(T);
+
+impl<T> MyBox<T> {
+    fn new(x: T) -> MyBox<T> {
+        MyBox(x)
+    }
+}
+
+impl<T> Deref for MyBox<T> {
+    //关联类型，后面说
+    type Target = T;
+    fn deref(&self) -> &T {
+        //返回一个引用的值，所以外面可以通过解引用拿到这个值
+        &self.0
+    }
+}
+
+fn main() {
+    let x = 5;
+    let y = MyBox::new(5);
+
+    //解引用获取y的值
+    assert_eq!(x, *y);
+}
+```
+
+##### 函数和方法的隐式解引用转换(Defef Coercion)
+
+隐式解引用转换是为函数和方法提供的一种便捷特性
+
+假设T实现了Defef trait：
+
+Deref Coercion可以把T的引用转换成T经过Defef操作后生成的引用
+
+当把某类型的引用传递给函数或方法时，但它的类型和定义的参数类型不匹配，此时：
+
+- 隐式解引用转换就会自动发生
+- 编译器会对deref进行一系列调用，来把它转换成所需的参数类型
+- 编译完成时，没有额外的性能开销
+
+```rust
+use std::ops::Deref;
+
+struct MyBox<T>(T);
+
+impl<T> MyBox<T> {
+    fn new(x: T) -> MyBox<T> {
+        MyBox(x)
+    }
+}
+
+impl<T> Deref for MyBox<T> {
+    type Target = T;
+    fn deref(&self) -> &T {
+        &self.0
+    }
+}
+
+fn hello(str: &str) {
+    println!("Hello, {}", str);
+}
+
+fn main() {
+    let y = MyBox::new(String::from("World"));
+
+    //这里的&y，编译器会发生一系列隐式解引用过程
+    // 1.&MyBox<String>, MyBox实现了Dref trait，可以解引用
+    // 2.String类型实现了Deref trait，可以解引用&String，返回一个&str
+    // 3.最后 deref &str,匹配到了
+    hello(&y);
+}
+
+```
+
+##### 解引用和可变性
+
+这一部分目前可以先进行了解，以后可以深入研究：
+
+- 可使用DerefMut trait重载可变引用的*运算符
+
+- 在类型和trait在下列三种情况发生时，Rust会执行deref coercion：
+
+  1.当T:Deref<Target = U>，允许&T转换为&U。(这句话的意思是：当类型T，它实现了Deref trait，它里面实现的deref方法，返回的类型是U，那么T的引用就可以转换为U的引用)
+
+  2.当T:Deref<Target = U>，允许&mut T转换为&mut U
+
+  3.当T:Deref<Target = U>，允许&mut T转换为&U。(Rust能将一个可变引用转换为不可变引用，反过来不行)
+
+
+
+### Drop trait
+
+##### 概念
+
+实现Drop trait，可以让我们自定义当值要离开作用域时发生的动作。
+
+例如：文件、网络资源释放
+
+任何类型都可以实现Drop trait，只要求实现一个drop方法就行(参数是对self的可变引用)。Drop trait在预导入模块prelude中。
+
+```rust
+struct CustomSmartPointer {
+    data: String,
+}
+
+impl Drop for CustomSmartPointer {
+    fn drop(&mut self) {
+        println!("释放数据:{}", self.data);
+    }
+}
+
+fn main() {
+    let a = CustomSmartPointer {
+        data: String::from("测试1"),
+    };
+    let b = CustomSmartPointer {
+        data: String::from("测试2"),
+    };
+
+    //可以看到释放数据的顺序和创建时是反过来的
+    // 自定义智能指针创建
+    // 释放数据:测试2
+    // 释放数据:测试1
+    println!("自定义智能指针创建");
+}
+```
+
+##### 提前drop值
+
+我们很难去禁用自动的Drop功能，也没必要去禁用，Drop trait存在的目的就是进行自动的释放处理逻辑。
+
+另外，Rust也不允许我们自己手动调用drop方法，比如上面的main函数里，手动调用drop方法就会报错：
+
+```rust
+let a = CustomSmartPointer {
+    data: String::from("测试1"),
+};
+//报错：explicit destructor calls not allowed
+//显式调用构造器是不允许的
+a.drop();
+```
+
+我们不能手动调用Drop trait里的drop函数，但是我们可以调用标准库中的`std::mem::drop`函数，来达到提前drop值的目的。可以看看下面的例子
+
+```rust
+use std::mem::drop;
+
+struct CustomSmartPointer {
+    data: String,
+}
+
+impl Drop for CustomSmartPointer {
+    fn drop(&mut self) {
+        println!("释放数据:{}", self.data);
+    }
+}
+
+fn main() {
+    let a = CustomSmartPointer {
+        data: String::from("测试1"),
+    };
+    //提前drop掉a的值
+    drop(a);
+    let b = CustomSmartPointer {
+        data: String::from("测试2"),
+    };
+
+    // 释放数据:测试1
+    // 自定义智能指针创建
+    // 释放数据:测试2
+    println!("自定义智能指针创建");
+}
+```
+
+
+
