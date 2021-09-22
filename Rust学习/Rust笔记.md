@@ -4405,7 +4405,7 @@ Rust中最常见的指针是“引用”，使用&表示，借用它指向的值
 
 #### 例子
 
-我们之前使用到过的String和Vec<T>都是智能指针，它们都拥有一片内存区域，且允许用户对其操作，还拥有元数据（例如容量）、可以提供额外的功能或保障（比如String保障其数据是合法的UTF-8编码）
+我们之前使用到过的String和Vec\<T>都是智能指针，它们都拥有一片内存区域，且允许用户对其操作，还拥有元数据（例如容量）、可以提供额外的功能或保障（比如String保障其数据是合法的UTF-8编码）
 
 #### 实现
 
@@ -4414,9 +4414,9 @@ Rust中最常见的指针是“引用”，使用&表示，借用它指向的值
 - Deref trait：允许智能指针struct的实例像引用一样使用
 - Drop trait：允许你自定义当智能指针实例走出作用域时的代码
 
-#### 使用Box<T>指向堆上的数据
+#### 使用Box\<T>指向堆上的数据
 
-Box<T>是最简单的智能指针：允许在堆上存储数据而不是栈上存储，栈上是指向堆数据的指针，它没有性能开销，也没有其它额外的功能。 它也实现了Deref trait和Drop trait（这两个东西后面具体讲）
+Box\<T>是最简单的智能指针：允许在堆上存储数据而不是栈上存储，栈上是指向堆数据的指针，它没有性能开销，也没有其它额外的功能。 它也实现了Deref trait和Drop trait（这两个东西后面具体讲）
 
 ##### 使用场景
 
@@ -4458,7 +4458,7 @@ enum Message {
 
 ##### 使用Box来获得确定大小的递归类型
 
-Box<T>是一个指针，Rust知道它需要多少空间大小，因为指针的大小不会基于它所指向的数据的大小变化而变化。
+Box\<T>是一个指针，Rust知道它需要多少空间大小，因为指针的大小不会基于它所指向的数据的大小变化而变化。
 
 比如我们要在Rust中实现一个链表数据结构，该怎么表示：
 
@@ -4498,9 +4498,9 @@ fn test() {
 }
 ```
 
-##### 把Box<T>当作引用
+##### 把Box\<T>当作引用
 
-Box<T>可以代替上述引用，上面的例子可以改写成这样
+Box\<T>可以代替上述引用，上面的例子可以改写成这样
 
 ```rust
 // src/lib.rs
@@ -4699,3 +4699,283 @@ fn main() {
 
 
 
+### Rc\<T>引用计数智能指针
+
+#### 概念
+
+有时候，一个值会有多个所有者，为了支持多重引用，Rust引入了引用计数Rc(Reference counting)。
+
+它可以追踪到所有值的引用，如果引用为0，这个值就可以被清理掉了
+
+#### 使用场景
+
+需要在堆上分配数据，这些数据被程序的多个部分读取（只读），但在编译时无法确定哪个部分最后使用完这些数据。
+
+Rc<T>只能用于单线程的场景。
+
+Rc<T>不在预导入模块中，我们需要手动导入
+
+- Rc::clone(&a)函数：增加引用计数
+- Rc::strong_count(&a)：强引用计数。获得引用计数
+- Rc::weak_count(&a)：弱引用计数。也是获得引用计数
+
+如果我们要实现这样的一个数据结构，要怎么做呢？
+
+```rust
+b(3)
+   ↘
+     a -> 5 -> 10 -> Nil
+   ↗
+c(4)
+```
+
+```rust
+use crate::List::{Cons, Nil};
+use std::rc::Rc;
+
+enum List {
+    Cons(i32, Rc<List>),
+    Nil,
+}
+
+fn main() {
+    // 创建一个 5->10->null的链表
+    // 此处a的引用计数为1
+    let a = Rc::new(Cons(5, Rc::new(Cons(10, Rc::new(Nil)))));
+
+    //b指向a
+    //此处a的引用计数为2
+    let b = Cons(3, Rc::clone(&a));
+    //c也指向a
+    ///此处a的引用计数为2
+    let c = Cons(4, Rc::clone(&a));
+}
+```
+
+接下来我们再看一个关于引用计数的例子
+
+```rust
+use crate::List::{Cons, Nil};
+use std::rc::Rc;
+
+enum List {
+    Cons(i32, Rc<List>),
+    Nil,
+}
+
+fn main() {
+    // 创建一个 5->10->null的链表
+    let a = Rc::new(Cons(5, Rc::new(Cons(10, Rc::new(Nil)))));
+    println!("a的引用计数为：{}", Rc::strong_count(&a));
+
+    let b = Cons(3, Rc::clone(&a));
+    println!("a的引用计数为：{}", Rc::strong_count(&a));
+
+    {
+        //离开这个作用域之后引用计数-1
+        let c = Cons(4, Rc::clone(&a));
+        println!("a的引用计数为：{}", Rc::strong_count(&a));
+    }
+
+    println!("a的引用计数为：{}", Rc::strong_count(&a));
+}
+
+//最后的打印结果：
+// a的引用计数为：1
+// a的引用计数为：2
+// a的引用计数为：3
+// a的引用计数为：2
+```
+
+#### Rc::clone方法和类型的clone方法
+
+比如说上面的代码中的a是可以执行自身类型上的clone方法的，那这个方法和Rc::clone方法有什么区别呢？
+
+```rust
+let a = Rc::new(Cons(5, Rc::new(Cons(10, Rc::new(Nil)))));
+a.clone();
+```
+
+- Rc::clone()会增加引用，不会执行数据的深拷贝操作。
+- 类型的clone()：很多会执行数据的深拷贝操作，会比较耗费时间和性能。
+
+#### Rc\<T>是不可变引用
+
+Rc\<T>通过不可变引用，使得可以在程序不同部分之间共享只读数据。如果是可变引用的话，就会违反借用规则，多个指向同一个区域的可变引用会产生数据的竞争和数据的不一致问题。但是我们如果想要让数据变成可变引用的话该咋办呢？继续往下看
+
+### 内部可变性
+
+#### 概念
+
+内部可变性是Rust的设计模式之一，它允许你仅持有不可变引用的前提下对数据进行修改。
+
+这里面的数据结构中使用了unsafe代码来绕过Rust正常的可变性和借用规则
+
+#### RefCell\<T>
+
+和Rc\<T>不一样，RefCell\<T>类型代表了其持有数据的唯一所有权。
+
+和Rc\<T>一样的，只能用于单线程的场景。
+
+这里再回顾一下借用规则：
+
+- 在任何给定的时间里，你要么只能拥有一个可变引用，要么只能拥有任意数量的不可变引用
+- 引用总是有效的
+
+#### Box\<T>和RefCell\<T>的区别
+
+| Box\<T>                      | RefCell\<T>              |
+| ---------------------------- | ------------------------ |
+| 编译阶段强制代码遵守借用规则 | 只会在运行时检查借用规则 |
+| 否则就会出现错误             | 否则触发panic            |
+
+#### 借用规则在不同阶段进行检查的比较
+
+| 编译阶段               | 运行时                                                 |
+| ---------------------- | ------------------------------------------------------ |
+| 尽早暴露问题           | 问题暴露延后、甚至会到生产环境中                       |
+| 没有任何运行时开销     | 因借用计数产生些许性能损失                             |
+| 对大多数场景是最佳选择 | 实现某些特定的内存安全场景（不可变环境中修改自身数据） |
+| 是Rust的默认行为       |                                                        |
+
+#### 如何选择Box\<T>、Rc\<T>、RefCell\<T>
+
+|                    | Box\<T>                        | Ref\<T>                  | RefCell\<T>                    |
+| ------------------ | ------------------------------ | ------------------------ | ------------------------------ |
+| 同一数据的所有者:  | 一个                           | 多个                     | 一个                           |
+| 可变性、借用检查： | 可变、不可变借用（编译时检查） | 不可变借用（编译时检查） | 可变、不可变借用（运行时检查） |
+
+#### 可变地去借用一个不可变的值
+
+我们可以使用RefCell\<T>在运行时记录借用信息。在此之前，我们要先了解两个方法(安全接口)
+
+- borrow方法：返回智能指针Ref\<T>，它实现了Deref trait
+- borrow_mut方法：返回智能指针RefMut\<T>，它实现了Deref trait
+
+RefCell\<T>会记录当前存在多少个活跃的Ref\<T>和RefMut\<T>智能指针：
+
+- 每次调用borrow方法，不可变借用计数加1
+- 任何一个Ref\<T>的值离开作用域被释放时：不可变借用计数加减1
+- 每次调用borrow_mut：可变借用计数加1
+- 任何一个RefMut\<T>的值离开作用域被释放时：可变借用计数减1
+
+Rust是用这个技术来维护借用检查规则的：在任何一个给定时间里，只允许拥有多个不可变借用或一个可变借用
+
+下面的代码就是做一个总结，然后写一个例子去举例说明RefCell的内部可变性，用其来可变借用一个本身是不可变的值。
+
+```rust
+pub trait Messenger {
+  fn send(&self, msg: &str);
+}
+
+pub struct LimitTracker<'a, T: 'a + Messenger> {
+  messenger: &'a T,
+  value: usize,
+  max: usize,
+}
+
+impl<'a, T> LimitTracker<'a, T>
+where
+  T: Messenger,
+{
+  pub fn new(messenger: &T, max: usize) -> LimitTracker<T> {
+    LimitTracker {
+      messenger,
+      value: 0,
+      max,
+    }
+  }
+
+  pub fn set_value(&mut self, value: usize) {
+    self.value = value;
+
+    let percentage_of_max = self.value as f64 / self.max as f64;
+
+    if percentage_of_max >= 1.0 {
+      self.messenger.send("错误：超出了最大的设置值");
+    } else if percentage_of_max >= 0.9 {
+      self.messenger.send("紧急警告：你已经使用了超过设置值的90%");
+    } else if percentage_of_max >= 0.75 {
+      self.messenger.send("警告：你已经使用了超过设置值的75%");
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+  use std::cell::RefCell;
+
+  struct MockMessenger {
+    //注意RefCell
+    sent_messages: RefCell<Vec<String>>,
+  }
+
+  impl MockMessenger {
+    fn new() -> MockMessenger {
+      MockMessenger {
+        //注意RefCell
+        sent_messages: RefCell::new(vec![]),
+      }
+    }
+  }
+
+  impl Messenger for MockMessenger {
+    fn send(&self, message: &str) {
+      //注意borrow_mut，可变的去借用一个本身不可变的值
+      self.sent_messages.borrow_mut().push(String::from(message));
+    }
+  }
+
+  #[test]
+  fn it_send_an_over_75_percent_message() {
+    let mock_messenger = MockMessenger::new();
+    let mut limit_tracker = LimitTracker::new(&mock_messenger, 100);
+
+    limit_tracker.set_value(80);
+    //断言测试的messenger里的所存储的长度为1
+    assert_eq!(mock_messenger.sent_messages.borrow().len(), 1);
+  }
+}
+```
+
+
+
+####  将Rc\<T>和RefCell\<T>结合使用实现拥有多重所有权的可变数据
+
+```rust
+use crate::List::{Cons, Nil};
+use std::cell::RefCell;
+use std::rc::Rc;
+
+#[derive(Debug)]
+enum List {
+    Cons(Rc<RefCell<i32>>, Rc<List>),
+    Nil,
+}
+
+fn main() {
+    let value = Rc::new(RefCell::new(5));
+    let a = Rc::new(Cons(Rc::clone(&value), Rc::new(Nil)));
+    let b = Cons(Rc::new(RefCell::new(6)), Rc::clone(&a));
+    let c = Cons(Rc::new(RefCell::new(10)), Rc::clone(&a));
+
+    *value.borrow_mut() += 10;
+
+    // a -> Cons(RefCell { value: 15 }, Nil)
+    // b -> Cons(RefCell { value: 6 }, Cons(RefCell { value: 15 }, Nil))
+    // c -> Cons(RefCell { value: 10 }, Cons(RefCell { value: 15 }, Nil))
+    println!("a -> {:?}", a);
+    println!("b -> {:?}", b);
+    println!("c -> {:?}", c);
+} 
+```
+
+#### 其它的可以实现内部可变性的类型
+
+- **Cell\<T>：**通过复制来访问数据，区别于RefCell的借用规则来访问数据
+- **Mutex\<T>：**用于实现跨线程情景下的内部可变性
+
+### 循环引用导致内存泄露
+
+Rust的内存安全机制可以保证很难发生内存泄漏，但不是绝不可能。使用Rc\<T>和RefCell\<T>就可能创造出循环引用，从而引发内存泄漏：每个项的引用数量不会变成0，值也就不会被处理掉
