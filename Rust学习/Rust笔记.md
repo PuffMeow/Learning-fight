@@ -5087,7 +5087,7 @@ Channel：一个管道（包含发送端、接收端），调用发送端的方�
 
 ##### 创建Channel
 
-使用mpsc::channel函数(multiple producer singgle consumer多个生产者、一个消费者)来创建Channel。它返回一个元组，里面的元素分别是发送端、接收端
+使用`mpsc::channel`函数(multiple producer singgle consumer多个生产者、一个消费者)来创建Channel。它返回一个元组，里面的元素分别是发送端、接收端
 
 ```rust
 use std::sync::mpsc;
@@ -5123,7 +5123,7 @@ fn main() {
 
 Channel类似单所有权，一旦所有权移动到Channel，就不能使用它了。共享内存的并发方式类似于多所有权，多个线程可以同时访问同一块内存。
 
-Rust中可以使用Mutex(互斥)来实现只允许一个线程来访问数据，想要访问数据线程必须要先获得互斥锁(lock)，lock数据结构是mutex的一部分，它能跟踪谁对数据拥有独占访问权。mutex通常被描述为：通过锁定系统来保护它所持有的数据。
+Rust中可以使用`Mutex`(互斥)来实现只允许一个线程来访问数据，想要访问数据线程必须要先获得互斥锁(lock)，lock数据结构是Mutex的一部分，它能跟踪谁对数据拥有独占访问权。mutex通常被描述为：通过锁定系统来保护它所持有的数据。
 
 ##### Mutex所使用的两条规则
 
@@ -5132,17 +5132,43 @@ Rust中可以使用Mutex(互斥)来实现只允许一个线程来访问数据，
 
 ##### Mutex\<T>的API
 
-通过Mutex::new(数据)来创建Mutex\<T>，Mutex\<T>是一个智能指针，访问数据前使用lock方法来获取锁，这个方法会阻塞线程的执行，lock方法也可能失败，返回值是MutexGuard(智能指针，实现了Deref和Drop trait)
+通过`Mutex::new`(数据)来创建`Mutex<T>`，`Mutex<T>`是一个智能指针，访问数据前使用lock方法来获取锁，这个方法会阻塞线程的执行，lock方法也可能失败，返回值是`MutexGuard`(智能指针，实现了Deref和Drop trait)
 
 ##### 使用Arc\<T>来进行原子引用计数
 
-Arc\<T>和Rc\<T>类似，它俩API都是相同的，Arc\<T>可以用于并发情景，A是atomic，原子的意思。为什么所有的基础类型都不是原子的原因就在于原子类型需要付出性能作为代价。
+`Arc<T>`和`Rc<T>`类似，它俩API都是相同的，`Arc<T>`可以用于并发情景，A是atomic，原子的意思。为什么所有的基础类型都不是原子的原因就在于原子类型需要付出性能作为代价。
 
+下面的例子是可以将counter的值加10
 
+```rust
+use std::sync::{Arc, Mutex};
+use std::thread;
+
+fn main() {
+  let counter = Arc::new(Mutex::new(0));
+  let mut handles = vec![];
+
+  for _ in 0..10 {
+    let counter = Arc::clone(&counter);
+    let handle = thread::spawn(move || {
+      let mut num = counter.lock().unwrap();
+      *num += 1;
+    });
+    handles.push(handle);
+  }
+
+  for handle in handles {
+    handle.join().unwrap();
+  }
+
+  //结果是:10
+  println!("结果是:{}", *counter.lock().unwrap());
+}
+```
 
 ##### RefCell\<T>、Rc\<T>和Mutex\<T>、Arc\<T>
 
-- Mutex\<T>提供了内部可变性，和Cell家族一样
-- 可以使用RefCell\<T>来改变Rc\<T>里的内容
-- 可以使用Mutex\<T>来改变Arc\<T>里的内容
-- Mutex\<T>有产生死锁的风险
+- `Mutex<T>`提供了内部可变性，和Cell家族一样
+- 可以使用`RefCell<T>`来改变`Rc<T>`里的内容
+- 可以使用`Mutex<T>`来改变`Arc<T>`里的内容
+- `Mutex<T>`有产生死锁的风险
