@@ -5172,3 +5172,295 @@ fn main() {
 - 可以使用`RefCell<T>`来改变`Rc<T>`里的内容
 - 可以使用`Mutex<T>`来改变`Arc<T>`里的内容
 - `Mutex<T>`有产生死锁的风险
+
+##### Send和Sync trait
+
+Rust语言实现的并发特性较少，语言本身并没有实现并发，目前我们遇到的并发都是标准库中的。但是我们也可以自己去实现并发的相关库。Rust中有两个并发的概念，`std::marker::Sync`和`std::marker::Send`这两个标签trait，它们没有实现任何方法。
+
+- Send trait：允许线程间转移所有权，Rust中几乎所有类型都实现了这个trait，但是`Rc<T>`是例外，它只适用于单线程的情景。任何完全由Send类型组成的类型也被标记为Send，除了原始指针之外，几乎所有的基础类型都是Send。
+- Sync trait：允许从多线程访问，实现了`Sync trait`的类型可以安全的被多个线程引用。也就是说：如果T是Sync，那么&T就是Send，引用可以被安全的送往另一个线程，基础类型都是Sync，完全由Sync类型组成的类型也是Sync，但是`Rc<T>`不是Sync类型，RefCell<T>和`Cell<T>`家族也不是Sync类型，而`Mutex<T>`是Sync类型
+
+**手动实现Send和Sync这两个trait是不安全的，涉及到unsafe的代码，需要设计的很精细去保证线程之间的安全性。**
+
+### 面向对象编程
+
+Rust受到了多种编程范式的影响，也包括面向对象。
+
+面向对象包括以下特性：命名对象、封装、继承。。。
+
+#### 概念
+
+对象包括数据和行为，面向对象的定义是：面向对象的程序由对象组成，对象包括了数据和操作这些数据的过程，这些过程通常被称为方法或者操作。基于这个定义，我们可以知道Rust是面向对象的，同时也可以满足这些定义。
+
+#### 封装
+
+调用对象外部的代码无法直接访问对象内部的实现细节，唯一可以和对象进行交互的方法就是访问它公开的API。Rust中的pub关键字可以将方法暴露。
+
+#### 继承
+
+使得对象可以沿用另外一个对象的数据和行为，且不需要重复定义相关的代码。但是在Rust中是没有继承的，在Rust中要实现代码复用的话可以使用默认trait方法来进行代码共享。
+
+多态：Rust中使用泛型和trait约束可以实现多态。
+
+#### 使用trait对象来存储不同的值
+
+一个需求是这样的，希望可以创建一个图形工具，它会遍历某个元素列表，依次调用元素的draw方法来进行绘制，比如Button、Text等元素。在面向对象的语言中实现方式一般是定义一个Component父类，里面定义一个draw方法，然后定义Button、Text子类，去继承Component父类。
+
+而在Rust中怎么去实现这样的需求呢？
+
+Rust中可以为共有行为定义一个trait。Rust避免将struct和enum称为对象，因为它们和impl块是分开的。
+
+##### trait对象跟别的语言的对象的区别是什么？
+
+trait对象其实有点类似于别的语言中的对象，它们某种程度组合了数据和行为，但是不同的地方是trait对象不能添加数据。trait对象被专门用于抽象某一些共有的行为，没别的语言中的那么通用。
+
+接下来我们看个例子去实现这个基本的需求。
+
+```rust
+// src/lib.rs
+
+pub trait Draw {
+  fn draw(&self);
+}
+
+pub struct Screen {
+  //Box用来定义trait对象，这个结构用来表示Box里的元素都要实现了Draw这个trait
+  //而这里如果改成泛型来存储就只能存某一种元素类型，不够灵活
+  pub components: Vec<Box<dyn Draw>>,
+}
+
+impl Screen {
+  pub fn run(&self) {
+    for component in self.components.iter() {
+      component.draw()
+    }
+  }
+}
+
+// -----泛型的实现方式-----
+// pub struct Screen<T: Draw> {
+//   pub components: Vec<T>,
+// }
+
+// impl<T> Screen<T>
+// where
+//   T: Draw,
+// {
+//   pub fn run(&self) {
+//     for component in self.components.iter() {
+//       component.draw()
+//     }
+//   }
+// }
+
+pub struct Button {
+  pub width: u32,
+  pub height: u32,
+  pub text: String,
+}
+
+impl Draw for Button {
+  fn draw(&self) {
+    //绘制按钮
+  }
+}
+
+pub struct Text {
+  pub text: String,
+}
+
+impl Draw for Text {
+  fn draw(&self) {
+    //绘制一个文本框
+  }
+}
+```
+
+
+
+```rust
+// src/main.rs
+use demo::Draw;
+use demo::{Button, Screen, Text};
+
+struct SelectBox {
+  width: u32,
+  height: u32,
+  options: Vec<String>,
+}
+
+impl Draw for SelectBox {
+  fn draw(&self) {
+    // 绘制选择框
+  }
+}
+
+fn main() {
+  let screen = Screen {
+    //components里的元素都必须要实现了Draw这个trait才能存进去，否则就会报错
+    components: vec![
+      Box::new(SelectBox {
+        width: 25,
+        height: 25,
+        options: vec![
+          String::from("确定"),
+          String::from("取消"),
+          String::from("默认"),
+        ],
+      }),
+      Box::new(Button {
+        width: 15,
+        height: 15,
+        text: String::from("确定"),
+      }),
+      Box::new(Text {
+        text: String::from("文本框"),
+      }),
+    ],
+  };
+
+  screen.run();
+}
+```
+
+#### trait对象执行的是动态派发
+
+##### 静态派发(static dispatch)
+
+将trait对象作用到泛型上时，Rust会执行单态化，也就是说编译器会替换掉泛型参数为具体的非泛型实现。通过单态化生成的代码会执行静态派发，编译的时候会确定具体方法。类似于刚刚上面写到过的代码，这里就是会执行静态派发，一旦编译器确定了泛型参数是什么，在编译阶段中，components里就只能存这个指定了的类型的数据，而不能再存其它的。
+
+```rust
+pub struct Screen<T: Draw> {
+  pub components: Vec<T>,
+}
+
+impl<T> Screen<T>
+where
+  T: Draw,
+{
+  pub fn run(&self) {
+    for component in self.components.iter() {
+      component.draw()
+    }
+  }
+}
+```
+
+##### 动态派发(dynamic dispacth)
+
+编译器不能在编译的时候确定你具体调用的是哪类方法，编译器会产生额外的代码以便可以在运行时找出希望调用的方法。使用到trait对象就会执行动态派发，但是会产生运行时的开销，它会阻止编译器内联方法代码，使得部分优化操作不能进行。
+
+这一段components里的数据执行的就是动态派发。
+
+```rust
+pub struct Screen {
+  //Box用来定义trait对象，这个结构用来表示Box里的元素都要实现了Draw这个trait
+  //而这里如果改成泛型来存储就只能存某一种元素类型，不够灵活
+  pub components: Vec<Box<dyn Draw>>,
+}
+
+impl Screen {
+  pub fn run(&self) {
+    for component in self.components.iter() {
+      component.draw()
+    }
+  }
+}
+```
+
+#### trait对象必须保证对象安全
+
+只能把满足对象安全的trait转化为trait对象，Rust采用一一系列规则来确定某个对象是否安全，记住以下两条即可：
+
+- 方法的返回类型不是Self
+- 方法中不包括任何泛型类型参数
+
+在标准库中，Clone这个trait就不是一个符合对象安全的trait对象
+
+```rust
+pub trait Clone {
+    fn clone(&self) -> Self;
+}
+```
+
+#### 编写例子
+
+我们的需求是要写一个博客的发布审批，在草稿状态下只能提交审批，而发布之后才能拿到正式的博客数据。
+
+```rust
+// src/main.rs
+
+use demo::Post;
+
+fn main() {
+  //创建博客
+  let mut post = Post::new();
+
+  //博客发布内容
+  post.add_text("我今天在学Rust");
+
+  //博客请求审批
+  let post = post.request_review();
+
+  //通过博客审批
+  let post = post.approve();
+
+  //我今天在学Rust
+  println!("{}", post.content());
+}
+```
+
+```rust
+// src/lib.rs
+
+//正式的内容
+pub struct Post {
+  content: String,
+}
+
+//草稿内容
+pub struct DraftPost {
+  content: String,
+}
+
+//等待审批中的内容
+pub struct PendingReviewPost {
+  content: String,
+}
+
+//正式发布后的Post
+impl Post {
+  pub fn new() -> DraftPost {
+    DraftPost {
+      content: String::new(),
+    }
+  }
+
+  pub fn content(&self) -> &str {
+    &self.content
+  }
+}
+
+//草稿Post
+impl DraftPost {
+  pub fn add_text(&mut self, text: &str) {
+    self.content.push_str(text);
+  }
+
+  pub fn request_review(self) -> PendingReviewPost {
+    PendingReviewPost {
+      content: self.content,
+    }
+  }
+}
+
+//等待审批的Post中只有通过审批的方法，审批通过之后直接将正式的Post内容返回
+impl PendingReviewPost {
+  pub fn approve(self) -> Post {
+    Post {
+      content: self.content,
+    }
+  }
+}
+```
+

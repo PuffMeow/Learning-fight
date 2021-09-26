@@ -1,22 +1,18 @@
-use std::sync::{Arc, Mutex};
-use std::thread;
+use demo::Post;
 
 fn main() {
-  let counter = Arc::new(Mutex::new(0));
-  let mut handles = vec![];
+  //创建博客
+  let mut post = Post::new();
 
-  for _ in 0..10 {
-    let counter = Arc::clone(&counter);
-    let handle = thread::spawn(move || {
-      let mut num = counter.lock().unwrap();
-      *num += 1;
-    });
-    handles.push(handle);
-  }
+  //博客发布内容
+  post.add_text("我今天在学Rust");
 
-  for handle in handles {
-    handle.join().unwrap();
-  }
+  //博客请求审批
+  let post = post.request_review();
 
-  println!("结果是:{}", *counter.lock().unwrap());
+  //通过博客审批
+  let post = post.approve();
+
+  //我今天在学Rust
+  println!("{}", post.content());
 }
