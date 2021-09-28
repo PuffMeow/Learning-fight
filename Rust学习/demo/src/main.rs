@@ -1,18 +1,15 @@
-use demo::Post;
+enum Message {
+  Hello { id: i32 },
+}
 
 fn main() {
-  //创建博客
-  let mut post = Post::new();
+  let msg = Message::Hello { id: 5 };
 
-  //博客发布内容
-  post.add_text("我今天在学Rust");
-
-  //博客请求审批
-  let post = post.request_review();
-
-  //通过博客审批
-  let post = post.approve();
-
-  //我今天在学Rust
-  println!("{}", post.content());
+  match msg {
+    Message::Hello {
+      id: id_variable @ 3..=7,
+    } => println!("3到7的范围内找到id: {}", id_variable),
+    Message::Hello { id: 10..=12 } => println!("id在10到12范围内"),
+    Message::Hello { id } => println!("其它值"),
+  }
 }

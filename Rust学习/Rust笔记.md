@@ -5464,3 +5464,316 @@ impl PendingReviewPost {
 }
 ```
 
+### 模式匹配
+
+#### 模式概念
+
+模式是Rust中的一种特殊语法，用于匹配复杂和简单类型的结构。将模式和匹配表达式和其它构造结合使用，可以更好的控制程序的控制流。模式由以下元素组成：
+
+- 字面值
+- 结构的数组、enum、struct、tuple
+- 变量
+- 通配符
+- 占位符
+
+#### 用法
+
+```rust
+match value {
+   Patten => Expression,
+   Patten => Expression,   
+}
+```
+
+match表达式要求详尽，尽可能列出所有的可能值。
+
+一个特殊的模式符：_下划线
+
+- 它会匹配任何东西
+- 不会绑定到变量
+- 通常用于match最后一个分支，或用于忽略某些值
+
+#### if let 表达式
+
+- `if let` 表达式主要是作为一种简短的方式来等价的代替只有一个匹配项的match  
+
+- if let 可选的可以拥有else，包括 `else if` 、 `else if let`
+- `if let` 不会检查穷尽性
+
+#### while let 条件循环
+
+只要模式继续满足匹配的条件，那它允许while循环一直运行
+
+```rust
+fn main() {
+  let mut stack = Vec::new();
+  stack.push(1);
+  stack.push(2);
+  stack.push(3);
+
+  // 只要能从栈中取出值就一直弹栈
+  // top, 3
+  // top, 2
+  // top, 1
+  while let Some(top) = stack.pop() {
+    println!("top, {}", top);
+  }
+}
+```
+
+##### for循环
+
+Rust中最常见的循环方式，它也是属于模式的一种
+
+```rust
+fn main() {
+  let arr = vec![1, 2, 3, 4];
+
+  for (index, value) in arr.iter().enumerate() {
+    println!("index: {}, value: {}", index, value);
+  }
+}
+```
+
+#### let语句
+
+let用于声明变量，正常写法一般是`let a = 1`
+
+但是它也是一个模式，所以可以使用这样的写法`let (x,y,z) = (1,2,3)`
+
+#### 函数
+
+函数的参数也可以是模式
+
+```rust
+fn foo(x: i32) {
+    //test
+}
+
+fn print_some_thing(&(x,y): &(i32, i32)) {
+    println!("x: {}, y: {}", x, y);
+}
+
+fn main() {
+    let dot = (1, 2);
+    print_some_thing(&dot);
+}
+```
+
+#### 可辩驳性
+
+模式有两种形式：可辩驳的、不可辩驳的
+
+- 能匹配到任何可能传递的值的模式：不可辩驳的，意思就是不能失败的，怎么匹配都会成功，例如`let x = 5`
+- 对某些可能的值，无法进行匹配的模式：可辩驳的，例如`if let Some(x) = some_value`，这个some_value可能是None。
+- 函数参数、let语句、for循环只接受不可辩驳的模式
+- if let和while let 接受可辩驳和不可辩驳两种模式，但是编译器会抛出警告，因为可能匹配会失败
+
+#### 模式匹配的语法
+
+##### 字面值
+
+```rust
+fn main() {
+  let x = 1;
+
+  match x {
+    1 => println!("1"),
+    2 => println!("2"),
+    3 => println!("3"),
+    _ => println!("other"),
+  }
+}
+```
+
+##### 匹配命名变量
+
+```rust
+fn main() {
+  let x = Some(5);
+  let y = 10;
+
+  match x {
+    Some(50) => println!("匹配Some(50)"),
+    // 匹配到的y: 5
+    Some(y) => println!("匹配到的y: {:?}", y),
+    _ => println!("默认匹配"),
+  }
+
+  // 外部的x: Some(5), 外部的y: 10
+  println!("外部的x: {:?}, 外部的y: {}", x, y);
+}
+```
+
+##### 多重模式
+
+match表达式中，用|语法可以匹配多种模式
+
+```rust
+fn main() {
+  let x = 1;
+
+  match x {
+    1 | 2 => println!("1或2都能匹配到这"),
+    _ => println!("默认匹配"),
+  }
+}
+```
+
+##### 匹配某个范围的值
+
+使用`..=`运算符
+
+```rust
+fn main() {
+  let x = 2;
+
+  match x {
+    1..=5 => println!("匹配1到5的值"),
+    _ => println!("其它"),
+  }
+
+  let a = 'a';
+  match a {
+    'a'..='c' => println!("a - c"),
+    'd'..='z' => println!("d - z"),
+    _ => println!("other"),
+  }
+}
+```
+
+##### 解构以分解值
+
+可以使用模式来解构struct、enum、tuple，从而引用这些类型值的不同部分
+
+struct结构体
+
+```rust
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+fn main() {
+  let p = Point { x: 0, y: 7 };
+
+  //从p中解构出x和y，如果需要重新命名变量可以这样写let Point { x: a, y: b } = p;
+  let Point { x, y } = p;
+
+  println!("x: {}, y: {}", x, y);
+
+  //x匹配到0，y随意匹配
+  match p {
+    Point { x: 0, y } => println!("x匹配到0，y随意匹配"),
+    Point { x, y: 7 } => println!("x随意匹配，y匹配到7"),
+    Point { x, y } => println!("x和y都随意匹配到"),
+  }
+}
+```
+
+enum枚举
+
+```rust
+enum Message {
+  Quit,
+  Move { x: i32, y: i32 },
+  Write(String),
+  ChangeColor(i32, i32, i32),
+}
+
+fn main() {
+  let msg = Message::ChangeColor(255, 255, 0);
+
+  match msg {
+    Message::Quit => println!("Message::Quit"),
+    Message::Move { x, y } => println!("Message::Move, x:{}, y: {}", x, y),
+    Message::Write(text) => println!("Message::Write, text is {}", text),
+    Message::ChangeColor(r, g, b) => println!("Message::ChangeColor, r:{},g:{},b:{}", r, g, b),
+  }
+}
+```
+
+解构结构体和元组
+
+```rust
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+fn main() {
+  let ((a, b), Point { x, y }) = ((1, 2), Point { x: 10, y: 20 });
+}
+```
+
+##### 忽略值
+
+**_下划线忽略整个值，需要忽略的值可以直接用下划线来代替**
+
+```rust
+fn foo(_: i32, y: i32) {
+  println!("y is {}", y);
+}
+
+fn main() {
+  foo(3, 4);
+}
+```
+
+还可以通过_开头命名变量来忽略未使用的变量，默认情况下声明了变量不使用编译器会给出警告，想要不警告的话可以使用下划线开头命名变量
+
+```rust
+//x未使用会警告
+let x = 5;
+//_y未使用不会警告
+let _y = 5;
+```
+
+**使用..符号来忽略某一部分**
+
+```rust
+fn main() {
+  let numbers = (1, 2, 3, 4, 5);
+
+  match numbers {
+    // first is 1. last is 5
+    (first, .., last) => println!("first is {}. last is {}", first, last),
+  }
+}
+```
+
+**match守卫，增加附加判断条件**
+
+```rust
+fn main() {
+  let num = Some(1);
+
+  match num {
+    Some(x) if x < 3 => println!("num is {}", x),
+    Some(x) => println!("{}", x),
+    None => (),
+  }
+}
+```
+
+**@绑定，使用@符号可以让我们创建一个变量，该变量可以在测试某个值是否和模式匹配的同时保存该值**
+
+```rust
+enum Message {
+  Hello { id: i32 },
+}
+
+fn main() {
+  let msg = Message::Hello { id: 5 };
+
+  //3到7的范围内找到id: 5
+  match msg {
+    Message::Hello {
+      id: id_variable @ 3..=7,
+    } => println!("3到7的范围内找到id: {}", id_variable),
+    Message::Hello { id: 10..=12 } => println!("id在10到12范围内"),
+    Message::Hello { id } => println!("其它值"),
+  }
+}
+```
+
