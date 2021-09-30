@@ -5777,3 +5777,323 @@ fn main() {
 }
 ```
 
+### unsafe模式
+
+不强制保证内存安全，将编译器的安全检查放开，相当于让编译器相信开发者编写的代码，将unsafe代码单独声明出来，显示标记unsafe，出现问题的时候可以比较容易的定位到问题所在。
+
+Unsafe模式存在的原因：
+
+- 静态分析是保守的， 使用了unsafe模式，我们就应该知道自己在做什么，并且应当承担风险
+
+- 计算机硬件本身就是不安全的，Rust需要能够进行底层系统编程
+
+#### unsafe关键字
+
+使用unsafe关键字可以开启一个不安全的模式块，里面放unsafe的代码
+
+unsafe Rust可以执行的4个动作(unsafe的超能力)：
+
+- 解引用原始指针
+- 调用unsafe函数或方法
+- 访问或修改可变的静态变量
+- 实现unsafe trait
+
+**注意：**
+
+- unsafe并没有关闭借用检查或停用其它安全检查
+- 任何内存安全相关的错误必须留在unsafe块里
+- 尽可能隔离unsafe代码，最好将其封装在安全的抽象里，提供安全的API
+
+#### 解引用原始指针
+
+原始指针：
+
+- 可变的：`*mut T`
+- 不可变的：`*const T`，意味着指针在解引用后不能直接对其进行赋值
+- 注意：这里的*不是解引用符号，而是类型名的一部分
+
+和引用不同，原始指针：
+
+- 允许通过同时具有不可变和可变指针或多个指向同一个位置的可变指针来忽略借用规则
+- 无法保证能够指向合理的内存
+- 不实现任何自动清理
+
+这种实现放弃保证安全，从而换取更好的性能/与其它语言或硬件接口的能力。
+
+```rust
+fn main() {
+  let mut num = 5;
+
+  let t1 = &num as *const i32;
+  let t2 = &mut num as *mut i32;
+
+  // 报错dereference of raw pointer is unsafe and requires unsafe function or block
+  // 解引用原始指针是不安全的，需要将其放到不安全函数或者代码块中
+  // println!("t1: {}", *t1);
+  // println!("t2: {}", *t2);
+
+  //这样就可以正常访问了
+  unsafe {
+    println!("t1: {}", *t1);
+    println!("t2: {}", *t2);
+  }
+}
+```
+
+那为什么要用原始指针呢？
+
+- 为了和C语言进行接口交互
+- 构建借用检查器不能理解的安全抽象
+
+#### 调用unsafe函数或方法
+
+在定义之前加上unsafe关键字。
+
+在调用之前需要手动的满足一些条件（主要是看文档），因为Rust不能对这些条件进行验证。
+
+调用unsafe函数或方法也需要在unsafe块之内。
+
+```rust
+unsafe fn dangerous() {}
+
+fn main() {
+  // 报错：call to unsafe function is unsafe and requires unsafe function or block
+  // 调用不安全的函数需要在不安全函数或者不安全代码块内
+  // dangerous();
+
+  unsafe {
+    dangerous();
+  }
+}
+```
+
+#### 创建unsafe代码的安全抽象
+
+- 函数包含unsafe代码并不意味着需要将整个函数标记为unsafe
+
+- 将unsafe代码包裹在安全函数之内也是一种常见的抽象
+
+```rust
+use std::slice;
+
+// split_at_mut的实现原理，这个函数本身不是unsafe，但是里面的实现使用了unsafe
+// 这就是unsafe代码的安全抽象
+fn split_at_mut(slice: &mut [i32], mid: usize) -> (&mut [i32], &mut [i32]) {
+  let len = slice.len();
+  // as_mut_ptr这个方法返回一个切片buffer的不安全可变指针
+  let ptr = slice.as_mut_ptr();
+
+  assert!(mid <= len);
+
+  //需要在不安全代码块中返回,因为使用到了原始指针和偏移量
+  unsafe {
+    (
+      //from_raw_parts_mut方法是以ptr为起始地址，返回以mid为长度的切片
+      slice::from_raw_parts_mut(ptr, mid),
+      //ptr.add(mid)相当于以mid为偏移量去移动原始指针
+      slice::from_raw_parts_mut(ptr.add(mid), len - mid),
+    )
+  }
+}
+
+fn main() {
+  let mut arr = vec![1, 2, 3, 4, 5, 6];
+
+  let arr2 = &mut arr[..];
+  let (a, b) = arr2.split_at_mut(3);
+
+  assert_eq!(a, &mut [1, 2, 3]);
+  assert_eq!(b, &mut [4, 5, 6]);
+}
+```
+
+#### 使用extern函数调用其它语言的函数
+
+extern关键字简化了创建和使用外部函数接口(FFI)的过程
+
+`外部函数接口(FFI，Foreign Funciton Interface)`：它允许一种编程语言定义函数，并让其它编程语言能调用这些函数
+
+**任何在extern块里声明的函数都是不安全的**
+
+```rust
+// 这里的"C"指明了外部函数使用的是应用二进制接口(application binary interface)
+extern "C" {
+    //这里的abs是我们想要调用的外部函数的名称
+    fn abs(input: i32) -> i32;
+}
+
+fn main() {
+    unsafe{
+        abs(-3);
+    }
+}
+```
+
+`应用二进制接口（ABI，Application Binary Interface)`：定义函数在汇编层的调用方式。
+
+"C"是最常见的ABI，它遵循C语言的ABI
+
+#### 其它语言调用Rust函数
+
+- 可以使用extern创建接口，其它语言通过它们可以调用Rust的函数 
+
+- 在fn前添加extern关键字，并指定ABI
+
+- 还需要添加#[no_mangle]注解，为了避免Rust在编译阶段改变函数的名称  
+
+```rust
+#[no_mangle]
+//这个函数在被编译和链接之后就可以被C语言使用了
+pub extern "C" fn call_from_c() {
+  println!("从C语言调用Rust函数");
+}
+
+fn main() {}
+```
+
+#### 访问或修改一个可变静态变量
+
+Rust支持全局变量，但因为所有权机制可能产生某些问题，例如数据竞争，Rust中全局变量称为static变量。
+
+使用static关键字来声明全局变量，并且命名的变量要是大写。
+
+```rust
+static HELLO_WORLD: &str = "Hello world";
+
+fn main() {
+  println!("打印：{}", HELLO_WORLD);
+}
+```
+
+#### 静态变量
+
+- 静态变量和常量类似，以大写来命名。
+- 声明时必须标注类型
+- 只能存储`'static`生命周期的引用，无需显式标注生命周期
+- 访问不可变的静态变量是安全的
+
+#### 常量和不可变静态变量的区别
+
+- 静态变量：有固定的内存地址，使用它们的时候总是会访问相同的数据
+- 常量：允许使用它们的时候对数据进行复制
+- 静态变量：可以是可变的，访问和修改可变静态变量**是不安全**的
+
+```rust
+static mut COUNTER: i32 = 0;
+
+fn add_count(count: i32) {
+  unsafe {
+    COUNTER += count;
+  }
+}
+
+fn main() {
+  add_count(1);
+  // 报错use of mutable static is unsafe and requires unsafe function or block
+  // println!("Counter: {}", COUNTER);
+
+  unsafe {
+    // Counter: 1
+    println!("Counter: {}", COUNTER);
+  }
+}
+```
+
+#### 实现不安全的trait
+
+当某个trait中存在至少一个方法拥有编译器不能校验的不安全因素时，就称这个trait是不安全的
+
+在定义trait之前使用unsafe关键字可以声明`unsafe trait`，这个trait只能在unsafe代码块中实现
+
+```rust
+unsafe trait Foo {
+  // ...
+}
+
+unsafe impl Foo for i32 {
+  // ...
+}
+
+fn main() {}
+```
+
+### 高级trait
+
+#### 关联类型
+
+可以在trait定义中使用关联类型来指定占位类型，关联类型是trait中的类型占位符，它可以用于trait的方法签名中，我们可以定义出包含某些类型的trait，而在实现前不需要知道这些类型是什么。
+
+```rust
+pub trait Iterator {
+  type Item;
+
+  fn next(&mut self) -> Option<Self::Item>;
+}
+
+fn main() {}
+```
+
+#### 泛型和关联类型的区别
+
+| 泛型                                                         | 关联类型           |
+| ------------------------------------------------------------ | ------------------ |
+| 每次实现Trait时标注类型                                      | 无需标注类型       |
+| 可以为一个类型多次实现某个Trait(不同的泛型参数)实现某个Trait | 不能为单个类型多次 |
+
+泛型实现Trait，使用不同的类型参数多次实现
+
+```rust
+pub trait Iterator<T> {
+  fn next(&mut self) -> Option<T>;
+}
+
+struct Counter {}
+
+impl Iterator<String> for Counter {
+  fn next(&mut self) -> Option<String> {
+    None
+  }
+}
+
+impl Iterator<u32> for Counter {
+  fn next(&mut self) -> Option<u32> {
+    None
+  }
+}
+
+fn main() {}
+```
+
+使用关联类型时，不能像泛型那样多次实现某个Trait，只能实现一次
+
+```rust
+pub trait Iterator {
+  type Item;
+
+  fn next(&mut self) -> Option<Self::Item>;
+}
+
+struct Counter {}
+
+impl Iterator for Counter {
+  type Item = u32;
+
+  fn next(&mut self) -> Option<Self::Item> {
+    None
+  }
+}
+
+//重复定义冲突报错：conflicting implementations of trait `Iterator` for type `Counter`
+// impl Iterator for Counter {
+//   type Item = String;
+
+//   fn next(&mut self) -> Option<Self::Item> {
+//     None
+//   }
+// }
+
+fn main() {}
+```
+
+#### 默认泛型参数和运算符重载
+
