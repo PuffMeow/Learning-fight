@@ -6097,3 +6097,200 @@ fn main() {}
 
 #### 默认泛型参数和运算符重载
 
+- 可以在使用泛型参数时为泛型指定一个默认的具体类型
+- Rust不允许创建自己的运算符及重载任意的运算符，但可以通过实现`std::ops`中列出的trait来重载部分运算符，例如下面的加号运算符重载。
+
+```rust
+use std::ops::Add;
+
+#[derive(Debug, PartialEq)]
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+impl Add for Point {
+  type Output = Point;
+
+  fn add(self, other: Point) -> Point {
+    Point {
+      x: self.x + other.x,
+      y: self.y + other.y,
+    }
+  }
+}
+
+fn main() {
+  let res = Point { x: 1, y: 1 } + Point { x: 1, y: 1 };
+  // res: Point { x: 2, y: 2 }
+  println!("res: {:?}", res);
+}
+```
+
+再看另一个例子，默认在Add上赋予泛型参数类型Meters，将毫米和米进行相加，最后返回毫米
+
+```rust
+use std::ops::Add;
+
+#[derive(Debug)]
+struct MilliMeters(u32);
+struct Meters(u32);
+
+impl Add<Meters> for MilliMeters {
+  type Output = MilliMeters;
+
+  fn add(self, other: Meters) -> MilliMeters {
+    MilliMeters(self.0 + other.0 * 1000)
+  }
+}
+
+fn main() {
+  let res = MilliMeters(1000) + Meters(1);
+  // res: MilliMeters(2000)
+  println!("res: {:?}", res);
+}
+```
+
+#### 完全限定语法-如何调用同名方法
+
+有多个不同的Trait，这些Trait上面都有同名方法，并且类型本身的实现也有同名的方法，如何去分别调用这些同名方法呢？
+
+```rust
+trait Police {
+  fn walk(&self);
+}
+
+trait Doctor {
+  fn walk(&self);
+}
+
+struct Human;
+
+impl Police for Human {
+  fn walk(&self) {
+    println!("警察走路")
+  }
+}
+
+impl Doctor for Human {
+  fn walk(&self) {
+    println!("医生走路")
+  }
+}
+
+impl Human {
+  fn walk(&self) {
+    println!("普通人走路")
+  }
+}
+
+fn main() {
+  //创建一个Human实例，调用它上面的走路方法
+  let person = Human;
+  //普通人走路
+  person.walk();
+
+  //使用这个写法就可以调用不同Trait上面的同名方法
+  //警察走路
+  Police::walk(&person);
+  //医生走路
+  Doctor::walk(&person);
+}
+```
+
+**完全限定语法的使用**
+
+`<Type as trait>::function()`
+
+- 这种语法可以在任何调用函数或方法的地方使用
+- 允许忽略那些从其它上下文能推导出来的部分
+- 当Rust不能区分你期望调用哪个具体实现的时候，才需要使用这种语法
+
+```rust
+trait Dog {
+  fn woof() -> String;
+}
+
+struct Animal;
+
+impl Dog for Animal {
+  fn woof() -> String {
+    String::from("狗狗叫")
+  }
+}
+
+impl Animal {
+  fn woof() -> String {
+    String::from("小动物叫")
+  }
+}
+
+fn main() {
+  //调用方法: 小动物叫
+  println!("调用方法: {}", Animal::woof());
+  //使用完全限定语法：调用方法: 狗狗叫
+  println!("调用方法: {}", <Animal as Dog>::woof());
+}
+```
+
+#### 使用supertrait来要求trait附带其它trait的功能
+
+- 需要在一个trait中使用其它trait的功能，需要被依赖的trait也被实现，那个被间接依赖的trait就是当前trait的supertrait。
+
+```rust
+use std::fmt;
+
+trait OutlinePrint: fmt::Display {
+  fn outline_print(&self) {
+    let output = self.to_string();
+    let len = output.len();
+
+    println!("{}", "*".repeat(len + 4));
+    println!("*{}*", " ".repeat(len + 2));
+    println!("* {} *", output);
+    println!("*{}*", " ".repeat(len + 2));
+    println!("{}", "*".repeat(len + 4));
+  }
+}
+
+struct Point {
+  x: i32,
+  y: i32,
+}
+
+impl OutlinePrint for Point {}
+
+impl fmt::Display for Point {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "({}, {})", self.x, self.y)
+  }
+}
+
+fn main() {}
+```
+
+#### 使用newtype模式在外部类型上实现外部Trait
+
+之前我们在上面讲到过孤儿规则：只有当Trait或类型定义在本地包的时候，才能为该类型实现这个Trait。
+
+但是我们可以通过newtype模式来绕过这一规则：**利用tuple struct(元组结构体)创建一个新的类型**
+
+```rust
+use std::fmt;
+
+//元组结构体重新定义类型
+struct Wrapper(Vec<String>);
+
+//为它实现外部的Trait
+impl fmt::Display for Wrapper {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "[{}]", self.0.join(", "))
+  }
+}
+
+fn main() {
+  let w = Wrapper(vec![String::from("Hello"), String::from("World")]);
+  println!("w = {}", w);
+}
+```
+
