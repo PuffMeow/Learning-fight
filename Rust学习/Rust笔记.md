@@ -6465,6 +6465,8 @@ Rust中最常见的宏形式：声明宏
 声明一个vec!的宏的过程是下面这样子的
 
 ```rust
+// src/lib.rs
+
 // let v:Vec<u32> = vec![1,2,3];
 
 #[macro_export]
@@ -6492,3 +6494,178 @@ macro_rules! vec {
 ```
 
 这里了解就行，我们大多数一般情况只是去使用，一般不会去手动写声明宏。
+
+#### 基于属性来生成代码的过程宏
+
+这种形式的宏更像函数
+
+- 它接收并操作输入的Rust代码
+- 生成另外一些Rust代码作为结果
+
+三种过程宏：
+
+- 自定义派生(derive)
+- 属性宏
+- 过程宏(创建过程宏的宏定义必须单独放在它自己的包里面，并使用特殊的包类型)
+
+##### 自定义derive宏
+
+需求：创建一个hello_macro包，定义一个拥有关联函数`hello_macro`的`HelloMacro trait`，我们提供一个能自动实现trait的过程宏，让用户在使用时可以在他们的类型上标注`#[derive(helloMacro)]`，进而得到`hello_macro`的默认实现。
+
+实现：
+
+- 创建一个demo文件夹，在里面新建一个文件`Cargo.toml`，然后写入以下内容
+
+  ```rust
+  [workspace]
+  
+  members = [
+    "hello_macro",
+    "hello_macro_derive",
+    "pancakes"
+  ]
+  ```
+
+- 在demo文件夹下，执行命令`cargo new hello_macro --lib`
+
+- 在里面的`src/lib.rs`写入：
+
+  ```rust
+  pub trait HelloMacro {
+      fn hello_macro();
+  }
+  ```
+
+- 因为过程宏必须要在单独自己的一个包里，所以我们为过程宏创建一个包，回到demo目录下执行`cargo new hello_macro_derive --lib`，然后修改它的`Cargo.toml`文件
+
+  ```rust
+  [package]
+  name = "hello_macro_derive"
+  version = "0.1.0"
+  edition = "2018"
+  
+  [lib]
+  proc-macro = true
+  
+  [dependencies]
+  syn = "0.14.4"
+  quote = "0.6.3"
+  ```
+
+  接下来再去编写这个包的主要代码
+
+  ```rust
+  // demo/hello_macro_derive/src/lib.rs
+  
+  extern crate proc_macro;
+  
+  use crate::proc_macro::TokenStream;
+  // syn这个包可以将字符串转化为我们可以进一步操作的数据结构
+  use syn;
+  // quote这个包可以将syn产生的数据结构重新转化为Rust代码
+  use quote::quote;
+  
+  //其它地方使用#[derive(HelloMacro)]时就会自动调用这个函数
+  #[proc_macro_derive(HelloMacro)]
+  pub fn hello_macro_derive(input: TokenStream) -> TokenStream {
+    // 作AST语法解析
+    let ast = syn::parse(input).unwrap();
+  
+    impl_hello_macro(&ast)
+  }
+  
+  fn impl_hello_macro(ast: &syn::DeriveInput) -> TokenStream {
+    let name = &ast.ident;
+    // quote!宏可以让我们定义希望返回的Rust代码
+    let gen = quote! {
+      impl HelloMacro for #name {
+        fn hello_macro() {
+          // stringify!宏是Rust内置的，就是字符串化
+          println!("hello_macro, name is {}", stringify!(#name))
+        }
+      }
+    };
+  
+    // gen返回的结果编译器不能理解，需要调用into方法将其转换为符合要求的TokenStream类型
+    gen.into()
+  }
+  
+  // 上面解析的ast参数DeriveInput的数据结构
+  // DeriveInput {
+  //   iden: Iden {
+  //     iden: "Pancakes",
+  //     span: #0 bytes(95 .. 103)
+  //   },
+  //   data: Struct(
+  //     DataStruct {
+  //       struct_token: Struct,
+  //       fields: Unit,
+  //       semi_token: Some(
+  //         Semi
+  //       )
+  //     }
+  //   )
+  // }
+  ```
+
+- 分别cd 到`hello_macro_derive`和`hello_macro`两个目录下执行`cargo build`命令进行构建
+
+- 创建一个主执行包，`cargo new pancakes`，然后修改pancakes目录下的`Cargo.toml`文件
+
+  ```rust
+  [package]
+  edition = "2018"
+  name = "pancakes"
+  version = "0.1.0"
+  
+  [dependencies]
+  hello_macro = {path = "../hello_macro"}
+  hello_macro_derive = {path = "../hello_macro_derive"}
+  ```
+
+  接下来编写主要的测试代码
+
+  ```rust
+  // demo/pancakes/src/main.rs
+  
+  use hello_macro::HelloMacro;
+  use hello_macro_derive::HelloMacro;
+  
+  #[derive(HelloMacro)]
+  struct Pancakes;
+  
+  fn main() {
+    // 最终输出结果hello_macro, name is Pancakes
+    Pancakes::hello_macro();
+  }
+  ```
+
+#### 类似属性的宏
+
+属性宏和自定义derive宏类似，它允许创建新属性，但不是为derive属性生成代码
+
+相比于derive宏只能用于struct和enum，属性宏更加灵活，它可以用于任意条目，例如函数
+
+一个MVC路由匹配的属性宏类似于下面这样的写法：
+
+```rust
+#[route(GET, "/")]
+fn index() {}
+
+#[proc_macro_attribute]
+pub fn route(attr: TokenStream, item: TokenStream) -> TokenStream {}
+```
+
+#### 类似函数的宏
+
+函数宏定义类似于函数调用的宏，但比普通函数更加灵活。函数宏可以接收TokenStream作为参数，与另外两种宏一样，在定义中使用Rust代码来操作TokenStream。
+
+例如我们想写一个可以解析SQL语句的宏，可以类似于下面这样的写法：
+
+```rust
+let sql = sql!(SELECT * FROM posts where id = 1);
+
+#[proc_macro]
+pub fn sql(input: TokenStream) -> TokenStream {}
+```
+
