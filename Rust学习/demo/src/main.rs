@@ -1,14 +1,12 @@
-use std::fmt;
+// 报错： doesn't have a size known at compile-time
+// 编译时不知道它的大小
+// fn returns_closure() -> Fn(i32) -> i32 {
+//   |x| x + 1
+// }
 
-struct Wrapper(Vec<String>);
-
-impl fmt::Display for Wrapper {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "[{}]", self.0.join(", "))
-  }
+//解决方式
+fn returns_closure() -> Box<dyn Fn(i32) -> i32> {
+  Box::new(|x| x + 1)
 }
 
-fn main() {
-  let w = Wrapper(vec![String::from("Hello"), String::from("World")]);
-  println!("w = {}", w);
-}
+fn main() {}

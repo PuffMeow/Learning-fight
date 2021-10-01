@@ -6273,7 +6273,7 @@ fn main() {}
 
 之前我们在上面讲到过孤儿规则：只有当Trait或类型定义在本地包的时候，才能为该类型实现这个Trait。
 
-但是我们可以通过newtype模式来绕过这一规则：**利用tuple struct(元组结构体)创建一个新的类型**
+但是我们可以通过`newtype`模式来绕过这一规则：**利用tuple struct(元组结构体)创建一个新的类型**
 
 ```rust
 use std::fmt;
@@ -6294,3 +6294,201 @@ fn main() {
 }
 ```
 
+`newtype`模式可以实现类型安全和抽象
+
+- 用来静态的保证各种值之间不会混淆并表明值的单位
+- 为类型的某些细节提供抽象能力
+- 通过轻量级的封装来隐藏内部实现细节
+
+### 高级类型
+
+#### 类型别名
+
+**类型别名**：为现有类型产生另外的名称(同义词)，它并不是一个独立的类型，使用`type关键字`声明。主要用途是减少代码字符重复。
+
+一些比较长的类型并且需要重复用到的类型可以用类型别名来表示。
+
+```rust
+type Killometers = i32;
+
+fn main() {
+  let x: i32 = 1;
+  let y: Killometers = 1;
+
+  println!("x + y = {}", x + y);
+}
+```
+
+#### Never类型
+
+有一个**名为!**的特殊类型：它没有任何值，行话称为空类型，我们常称为never类型，它在不返回的函数中充当返回类型。不返回值的函数也被叫做**发散函数**。never类型和其它类型是兼容的。
+
+```rust
+fn main() {
+  println!("main");
+
+  //不会终止的循环，它就是一个never类型
+  loop {
+    println!("loop");
+  }
+}
+```
+
+#### 动态大小和Sized Trait
+
+Rust需要在编译时确定为某一个类型的值分配多少空间。
+
+动态大小的类型：只有在运行时才能确定大小的值。
+
+str是动态大小的类型(注意不是&str)，它只有在运行时才能确定字符串的长度。
+
+下列代码不能正常工作，因为str运行第一次时就确定了大小，后续的大小必须要与第一次确定的大小相同
+
+```rust
+let s1: str = "Hello world";
+let s2: str = "Hello Everybody";
+```
+
+**解决方法就是使用&str(字符串切片大小是固定的)，它存的是str的地址和长度。**
+
+##### 另外一种动态大小的类型就是Trait
+
+每个Trait都是一个动态大小的类型，可以通过名称对其进行引用，为了将Trait用作Trait对象，必须将它放置到某种指针之后。
+
+例如放在`&dyn Trait`或`Box<dyn Trait>`(`Rc<dyn Trait>`)之后
+
+##### Sized Trait
+
+为了处理动态大小的类型，Rust提供了一个Sized Trait来确定一个类型的大小在编译时是否已知，编译时可以计算出大小的类型会自动实现这个Trait，Rust还会为每个泛型函数隐式的添加Sized约束。
+
+```rust
+fn gerneric<T>(t: T) {}
+// 经过编译器之后会变成
+fn gerneric<T: Sized>(t: T) {}
+```
+
+默认情况下，泛型函数只能被用于编译时已经知道大小的类型，但是我们可以解除这个限制，`使用?Sized Trait约束`，它表达了一种不确定性。T可能是也可能不是Sized
+
+```rust
+fn gerneric<T: ?Sized>(t: &t) {}
+```
+
+### 高级函数和闭包
+
+#### 函数指针
+
+可以将函数传递给其它函数，函数在传递过程中会被强制转换成fn类型，fn类型就是“函数指针”
+
+```rust
+fn add_one(x: i32) -> i32 {
+  x + 1
+}
+
+fn add_twice(f: fn(x: i32) -> i32, arg: i32) -> i32 {
+  f(arg) + f(arg)
+}
+
+fn main() {
+  let res = add_twice(add_one, 1);
+  // res = 4
+  println!("res = {}", res);
+}
+```
+
+#### 函数指针和闭包的不同
+
+- fn是一个类型而不是一个Trait，可以直接指定fn为参数类型，不用声明一个以fn trait为约束的泛型参数 
+
+- 函数指针实现了全部三种闭包Trait(Fn, FnMut, FnOnce)，总是可以把函数指针用作参数传递给一个接收闭包的函数，所以我们倾向于搭配闭包Trait的泛型来编写函数，这样这个函数可以同时接收闭包和普通函数
+
+- 某些情形(比如和不支持闭包的语言进行交互)，只想接收fn而不接收闭包。
+
+  ```rust
+  fn main() {
+    let numbers = vec![1, 2, 3];
+    
+    // map方法可以传闭包，也可以传函数
+    let strings: Vec<String> = numbers.iter().map(|i| i.to_string()).collect();
+  
+    let strings2: Vec<String> = numbers.iter().map(ToString::to_string).collect();
+  }
+  ```
+
+#### 返回闭包
+
+闭包使用Trait进行表达，不能在函数中直接返回一个闭包，可以将一个实现了这个Trait的具体类型作为返回值
+
+```rust
+// 报错： doesn't have a size known at compile-time
+// 编译时不知道它的大小
+// fn returns_closure() -> Fn(i32) -> i32 {
+//   |x| x + 1
+// }
+
+//解决方式，使用Box来确定大小
+fn returns_closure() -> Box<dyn Fn(i32) -> i32> {
+  Box::new(|x| x + 1)
+}
+
+fn main() {}
+```
+
+### 宏macro
+
+#### 概念
+
+宏在Rust里指的是一组相关特性的集合称谓：
+
+使用`macro_rules!`构建的声明宏(declarative macro)
+
+三种过程宏：
+
+- 自定义`#[derive]`宏，用于`struct`或`enum`，可以为其指定随derive属性添加的代码
+- 类似属性的宏，在任意条目上添加自定义属性
+- 类似函数的宏，看起来像函数调用，对其指定为参数的token进行操作
+
+#### 函数和宏的区别
+
+- 本质上，宏是用来编写可以生成其它代码的代码(元编程,metaprogramming)
+- 函数在定义签名时，必须声明参数的个数和类型，宏可处理可变的参数
+- 编译器会在解释代码前展开宏
+- 宏的定义比函数复杂得多，难以阅读、理解、维护
+- 在某个文件调用宏时，必须提前定义宏或将宏引入当前作用域
+- 函数可以在任意地方定义并在任意地方使用
+
+#### macro_rules!声明宏
+
+Rust中最常见的宏形式：声明宏
+
+类似match的模式匹配，需要使用`macro_rules!`
+
+声明一个vec!的宏的过程是下面这样子的
+
+```rust
+// let v:Vec<u32> = vec![1,2,3];
+
+#[macro_export]
+macro_rules! vec {
+  // ($x: expr)表示可以匹配任何的Rust表达式，然后把它命名为$x
+  // 逗号,表示一个可能的字面分割符，会出现在捕获代码后边，后面的*号表示可以匹配0个或多个逗号之前的东西
+  //像上面的 vec![1,2,3]，$x会分别匹配到1、2、3
+  ($($x:expr), *) => {
+    {
+      let mut temp_vec = Vec::new();
+
+      $(
+        temp_vec.push($x);
+      )*
+      temp_vec
+    }
+  };
+}
+
+// 声明一个vec![1,2,3]发生的过程
+// let mut temp_vec = Vec::new();
+// temp_vec.push(1);
+// temp_vec.push(2);
+// temp_vec.push(3);
+```
+
+这里了解就行，我们大多数一般情况只是去使用，一般不会去手动写声明宏。
