@@ -6437,7 +6437,7 @@ fn main() {}
 
 #### 概念
 
-宏在Rust里指的是一组相关特性的集合称谓：
+宏在Rust里指的是一组相关特性的集合称谓，它有点类似于其它语言像TS的装饰器：
 
 使用`macro_rules!`构建的声明宏(declarative macro)
 
