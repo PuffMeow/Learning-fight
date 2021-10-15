@@ -3,7 +3,7 @@
 Docker 允许你在容器内运行应用程序， 使用 **docker run** 命令来在容器内运行一个应用程序
 
 ```
-runoob@runoob:~$ docker run ubuntu:15.10 /bin/echo "Hello world"
+docker run ubuntu:15.10 /bin/echo "Hello world"
 ```
 
 安装一个ubuntu 15.10版本的容器，并在容器中输出hello world，如果本地不存在该容器就会从远程仓库下载，相当于你在Docker容器内安装了一个ubuntu的虚拟环境，可以在里面执行各种Linux的指令。
@@ -55,3 +55,72 @@ docker run -it ubuntu:15.10 /bin/bash
 - paused（暂停）
 - exited（停止）
 - dead（死亡）
+
+### 删除一个容器
+
+```
+docker rm -f 容器ID
+```
+
+### 清理列表中所有终止状态的容器
+
+```
+docker container prune
+```
+
+### 导入导出容器
+
+导出容器快照到本地，默认会导出到当前控制台输入路径下，导出后可以在该目录下看到一个ubuntu.tar文件
+
+```
+docker export 容器ID > 容器文件的名称
+# 比如说
+docker export e8c460ada751 > ubuntu.tar
+```
+
+从本地导入容器文件，在windows上可以将cat指令换成type，cat只在linux系统支持
+
+```
+cat docker/容器文件的名称 | docker import - 镜像名称:版本号
+# 例如
+cat docker/ubuntu.tar | docker import - my/test:v0.0.1
+```
+
+或者从远程地址导入容器
+
+```
+docker import 容器的URL地址
+```
+
+### 查看镜像
+
+导入之后可以输入`docker images`来查看所有的容器镜像列表
+
+![image-20211015233846053](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\image-20211015233846053.png)
+
+| **REPOSITORY** | **TAG**    | **IMAGE ID** | **CREATED**  | **SIZE** |
+| -------------- | ---------- | ------------ | ------------ | -------- |
+| 镜像的仓库源   | 镜像的标签 | 镜像ID       | 镜像创建时间 | 镜像大小 |
+
+### 删除镜像
+
+```
+docker rmi 镜像仓库源
+# 比如说要删除上面的test v0.0.1版本
+docker rmi test:v0.0.1
+```
+
+### 获取镜像
+
+当使用`docker run `命令来运行本地不存在的镜像时会自动下载镜像，但也可以使用`docker pull`命令来提前下载
+
+```
+docker pull 镜像名:版本号
+# 例如
+docker pull ubuntu:15.10
+```
+
+### 查找镜像
+
+直接去官网找吧**https://hub.docker.com/**
+
