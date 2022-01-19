@@ -2570,6 +2570,153 @@ fn main() {
 
 - 为满足Trait Bound的所有类型上实现Trait叫做覆盖实现。
 
+
+
+### 常用 Trait
+
+- Clone / Copy trait，约定了数据被深拷贝和浅拷贝的行为；
+- Read / Write trait，约定了对 I/O 读写的行为；
+- Iterator，约定了迭代器的行为；
+- Debug，约定了数据如何被以 debug 的方式显示出来的行为；
+- Default，约定数据类型的缺省值如何产生的行为;
+- From / TryFrom，约定了数据间如何转换的行为。
+
+#### 内存 Trait
+
+Clone / Copy / Drop
+
+#### 标记 Ttrait
+
+Sized / Send / Sync / Unpin
+
+Sized - 用于标记有具体大小的类型。在使用泛型参数时，Rust 编译器会自动为泛型参数加上 Sized 约束。在少数情况下，需要 T 是可变类型的，Rust 提供了 ?Sized 来摆脱这个约束。
+
+```rust
+struct Data<T> {
+    inner: T,
+}
+
+fn process_data<T>(data: Data<T>) {
+    todo!();
+}
+
+// 等价于 👇
+
+
+struct Data<T: Sized> {
+    inner: T,
+}
+
+fn process_data<T: Sized>(data: Data<T>) {
+    todo!();
+}
+```
+
+
+
+Send/Sync 是 Rust 并发安全的基础：
+
+- 如果一个类型 T 实现了 Send trait，意味着 T 可以安全地从一个线程移动到另一个线程，也就是说所有权可以在线程间移动。
+- 如果一个类型 T 实现了 Sync trait，则意味着 &T 可以安全地在多个线程中共享。一个类型 T 满足 Sync trait，当且仅当 &T 满足 Send trait。
+- 如果一个类型 T: Send，那么 T 在某个线程中的独占访问是线程安全的；
+- 如果一个类型 T: Sync，那么 T 在线程间的只读共享是安全的。
+
+
+
+对于自己定义的数据结构，如果其内部的所有域都实现了 Send / Sync，那么这个数据结构会被自动添加 Send / Sync 。基本上原生数据结构都支持 Send / Sync，也就是说，绝大多数自定义的数据结构都是满足 Send / Sync 的。
+
+标准库中，不支持 Send / Sync 的数据结构主要有：
+
+- 裸指针 *const T / *mut T。它们是不安全的，所以既不是 Send 也不是 Sync。
+- UnsafeCell 不支持 Sync。也就是说，任何使用了 Cell 或者 RefCell 的数据结构不支持 Sync。
+- 引用计数 Rc 不支持 Send 也不支持 Sync。所以 Rc 无法跨线程。
+
+
+
+trait Unpin，是用于自引用类型的
+
+
+
+#### 类型转换 Trait
+
+From\<T> / Into\<T> / AsRef\<T> / AsMut\<T>
+
+对值类型的转换和对引用类型的转换，Rust 提供了两套不同的 trait：
+
+- 值类型到值类型的转换：From / Into / TryFrom / TryInto
+
+  ```rust
+  pub trait From<T> {
+      fn from(T) -> Self;
+  }
+  
+  pub trait Into<T> {
+      fn into(self) -> T;
+  }
+  
+  // 在实现 From 的时候会自动实现 Into
+  
+  impl<T, U> Into<U> for T where U: From<T> {
+      fn into(self) -> U {
+          U::from(self)
+      }
+  }
+  ```
+
+  如果数据类型在转换过程中有可能出现错误，可以使用 TryFrom 和 TryInto，用法和 From / Into 一样，只是 trait 内多了一个关联类型 Error，且返回的结果是 Result。
+
+- 引用类型到引用类型的转换：AsRef / AsMut
+
+  ```rust
+  pub trait AsRef<T> where T: ?Sized {
+      fn as_ref(&self) -> &T;
+  }
+  
+  pub trait AsMut<T> where T: ?Sized {
+      fn as_mut(&mut self) -> &mut T;
+  }
+  ```
+
+#### 操作符 Trait
+
+Deref / DerefMut
+
+比如 Add trait，它允许你重载加法运算符。Rust 为所有的运算符都提供了 trait，你可以为自己的类型重载某些操作符。
+
+```rust
+
+pub trait Deref {
+    // 解引用出来的结果类型
+    type Target: ?Sized;
+    fn deref(&self) -> &Self::Target;
+}
+
+pub trait DerefMut: Deref {
+    fn deref_mut(&mut self) -> &mut Self::Target;
+}
+
+// 用于为类型提供缺省值。也可以通过 derive 宏 #[derive(Default)] 来实现，前提是类型中的每个字段都实现了Default trait
+pub trait Default {
+    fn default() -> Self;
+}
+```
+
+#### 其它
+
+Debug / Display / Default
+
+```rust
+pub trait Debug {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error>;
+}
+
+pub trait Display {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), Error>;
+}
+```
+
+
+
 ### 生命周期
 
 #### 概念
@@ -2893,6 +3040,15 @@ where
 
 fn main() {}
 ```
+
+#### 总结
+
+- 所有使用了引用的函数，都需要生命周期的标注。
+
+- 所有引用类型的参数都有独立的生命周期 'a 、'b 等。
+- 如果只有一个引用型输入，它的生命周期会赋给所有输出。
+- 如果有多个引用类型的参数，其中一个是 self，那么它的生命周期会赋给所有输出。
+- 使用数据结构时，数据结构自身的生命周期，需要小于等于其内部字段的所有引用的生命周期。
 
 ### 编写测试
 
@@ -4431,7 +4587,7 @@ Box\<T>是最简单的智能指针：允许在堆上存储数据而不是栈上�
 - 当你有大量数据，想移交所有权时，但需要确保在操作时数据不会被复制。
 - 使用某个值时，你只关心它是否实现了特定的trait，而不关心它的具体类型。
 
-##### Box<T>如何在堆上存储数据？
+##### Box\<T>如何在堆上存储数据？
 
 ```rust
 fn main() {
@@ -4620,7 +4776,7 @@ fn main() {
 
 
 
-### Drop trait
+#### Drop trait
 
 ##### 概念
 
@@ -4703,6 +4859,12 @@ fn main() {
     println!("自定义智能指针创建");
 }
 ```
+
+
+
+#### 总结
+
+在 Rust 中，凡是需要做资源回收的数据结构，且实现了 Deref/DerefMut/Drop，都是智能指针。
 
 
 
@@ -5248,8 +5410,8 @@ pub trait Draw {
 }
 
 pub struct Screen {
-  //Box用来定义trait对象，这个结构用来表示Box里的元素都要实现了Draw这个trait
-  //而这里如果改成泛型来存储就只能存某一种元素类型，不够灵活
+  // Box用来定义trait对象，这个结构用来表示Box里的元素都要实现了Draw这个trait
+  // 而这里如果改成泛型来存储就只能存某一种元素类型，不够灵活
   pub components: Vec<Box<dyn Draw>>,
 }
 
@@ -5373,6 +5535,8 @@ where
 ##### 动态派发(dynamic dispacth)
 
 编译器不能在编译的时候确定你具体调用的是哪类方法，编译器会产生额外的代码以便可以在运行时找出希望调用的方法。使用到 trait 对象就会执行动态派发，但是会产生运行时的开销，它会阻止编译器内联方法代码，使得部分优化操作不能进行。
+
+表现为： &dyn Trait 或者 Box\<dyn Trait>
 
 这一段 components 里的数据执行的就是动态派发。
 
