@@ -1,4 +1,3 @@
-// http://index.html
 // http://test.qq.com/admin?query=123&page=index.html
 function test(UrlStr) {
   let reg = /(http|https):\/\/(.*?)\.qq\.com\??(.*?)/
