@@ -62,7 +62,14 @@ rustup doc
 Visual Studio Code
 ```
 
-我们前端喜欢用的那玩意儿，然后安装Rust插件，直接插件市场搜Rust安装就完事了，另外一个就是rust-analyzer，这个插件是对代码进行分析用的(下载不了的话需要开一下魔法上网)。
+我们前端喜欢用的那玩意儿，然后安装Rust插件，就是 `rust-analyzer`，这个插件是对代码进行分析以及智能提示和代码跳转用的(下载不了的话需要开一下魔法上网)。
+
+### 常用插件推荐
+
+1. `Better TOML`，tolm 文件扩展，用于更好的展示 .toml 文件
+2. `Error Lens`, 更好的获得错误展示
+3. `One Dark Pro`, 非常好看的 VSCode 主题，我自己很喜欢用
+4. `CodeLLDB`, Debugger 程序，主要是给 C++ 和 Rust Debug 用的
 
 ### Hello World
 
@@ -4026,6 +4033,46 @@ fn main() {
   //报错：value moved into closure here，值的所有权已经被闭包夺去了
   println!("x:{:?}", x);
 } 
+```
+
+#### 闭包大小
+
+闭包的大小跟参数、局部变量都无关，只跟捕获的变量有关。不带 move 时，闭包捕获的是对应自由变量的引用；带 move 时，对应自由变量的所有权会被移动到闭包结构中。
+
+```rust
+use std::{collections::HashMap, mem::size_of_val};
+
+fn main() {
+    // 长度为 0
+    let c1 = || println!("hello world!");
+    // 和参数无关，长度也为 0
+    let c2 = |i: i32| println!("hello: {}", i);
+    let name = String::from("hhh");
+    let name1 = name.clone();
+    let mut table = HashMap::new();
+    table.insert("hello", "world");
+    // 如果捕获一个引用，长度为 8
+    let c3 = || println!("hello: {}", name);
+    // 捕获移动的数据 name1(长度 24) + table(长度 48)，闭包长度为 72
+    let c4 = move || println!("hello: {}, {:?}", name1, table);
+    let name2 = name.clone();
+    // 和局部变量无关，捕获了一个 String name2，闭包长度为 24
+    let c5 = move || {
+        let x = 1;
+        let name3 = String::from("ggg");
+        println!("hello: {}, {:?}, {:?}", x, name2, name3);
+    };
+
+    println!(
+        "c1: {}, c2: {}, c3: {}, c4: {}, c5: {}, main: {}",
+        size_of_val(&c1),
+        size_of_val(&c2),
+        size_of_val(&c3),
+        size_of_val(&c4),
+        size_of_val(&c5),
+        size_of_val(&main),
+    )
+}
 ```
 
 #### 最佳实践
