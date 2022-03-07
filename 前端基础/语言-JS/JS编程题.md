@@ -57,7 +57,9 @@ console.log(
 
 ### 数组扁平化
 
-蚂蚁金服笔试题
+可以把嵌套的数组拍平，比如 arr = [1, 2, [3, 4, [5, 6]]]， 这是一个三层嵌套数组，用了数组扁平化之后就会直接变成一层的结构。
+
+arr = [1, 2, 3, 4, 5, 6]
 
 ```javascript
 function checkType(data) {
@@ -66,23 +68,23 @@ function checkType(data) {
 }
 
 function flat(array) {
-  // first method
+  // 第一种方式
   return array.reduce((pre, cur) => {
     return pre.concat(Array.isArray(cur) ? flat(cur) : cur)
   }, [])
 }
 
 function flat2(array) {
-  //second method
+  // 第二种方式
   return array.flat(Infinity)
 }
 
 function flat3(array) {
-  //third method
+  // 第三种方式
   let tempArr = []
   for (let i = 0; i < array.length; i++) {
     if (checkType(array[i]) === "array") {
-      tempArr = tempArr.concat(flat3(array[i]))   //笔试的时候这里写错了
+      tempArr = tempArr.concat(flat3(array[i])) 
     } else {
       tempArr.push(array[i])
     }
