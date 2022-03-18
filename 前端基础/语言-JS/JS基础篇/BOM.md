@@ -137,7 +137,7 @@ clearTimeout(timer)
 | history.forward() | 与在浏览器中点击向前按钮效果相同                             |
 | history.go(参数)  | 参数填 -1 的话就是后退，参数填 1 就是前进，跟上面的方法对应，0 的话就是刷新页面 |
 
-### Screen 对象
+#### Screen 对象
 
 包含有关用户屏幕的信息
 
