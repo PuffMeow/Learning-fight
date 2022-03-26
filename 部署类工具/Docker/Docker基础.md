@@ -316,6 +316,12 @@ apt-get install vim
 docker-compose up --build -d
 ```
 
+不使用缓存构建容器
+
+```bash
+docker-compose build --no-cache
+```
+
 删除容器
 
 ```bash
