@@ -1,24 +1,327 @@
 # 看完这篇文章你能了解到什么?
 
+- **了解常见的 Docker 知识**
+
 - **利用 Docker 快速跨平台部署后端( Node.js + MongoDB + Redis + Nginx ) 项目**
 - 一些常见的 Linux 系统操作
 - 编写 Dockerfile 文件
 - 编写 docker-compose 文件
-- 编写 nginx 配置文件
+- 编写 一些常见的 nginx 配置文件
 
 # PS
 
 这里主要讲的是利用容器化的方式去部署项目，容器化部署的好处有很多哈，比如容器可以很方便从一台电脑迁移到另一台电脑。
 
-如果想要了解传统的实机部署方式，可以看看我的另一篇文章
+如果想要了解传统的实机部署方式，可以看看我的另一篇文章 [手摸手教你如何从零一步一步部署一个前端项目到远程服务器](https://juejin.cn/post/6976114620897427464#heading-0)
 
-# 利用 Docker 进行项目部署
+# Docker 是什么？
+
+简单一句话就是一个应用打包、分发、部署的工具，可以把它理解为一个轻量的虚拟机，但是是以容器的方式运行的。
+
+支持各种系统 Linux，MacOS，Windows等。可以使用容器化部署以降低项目在不同的平台之间进行部署的成本。
+
+再也不会出现 **“怎么在我的电脑能运行，到了服务器就运行不了”** 这种情况。
+
+# Docker 基本概念
+
+使用 Docker 前需要先了解这几个基本概念
+
+- 镜像（image）
+- 容器（container）
+- 仓库（repository）
+
+获取镜像的方式可以通过 Dockerfile 文件创建，也可以通过 dockerHub 仓库下载
+
+- Docker 中**镜像**和**容器**的关系就像 **类** 与 **实例** 的关系
+- 镜像可以通过 Dockerfile 文件来生成，容器通过镜像来创建
+
+# Docker 使用国内镜像加速
+
+Linux 系统
+
+```
+vim /etc/docker/daemon.json
+```
+
+Windows 系统，找到 daemon.json 文件并打开修改
+
+`C:\Users\<你的用户名>\.docker\daemon.json` 文件
+
+然后修改里面的 `registry-mirrors` 字段，可以添加多个源地址。可以在下载镜像的时候加速
+
+```json
+{
+  "builder": {
+    "gc": {
+      "defaultKeepStorage": "20GB",
+      "enabled": true
+    }
+  },
+  "experimental": false,
+  "features": {
+    "buildkit": true
+  },
+  "registry-mirrors": [
+    "https://registry.docker-cn.com"
+  ]
+}
+```
+
+- Docker中国官方：https://registry.docker-cn.com
+
+- 中科大：https://docker.mirrors.ustc.edu.cn
+
+- 网易：http://hub-mirror.c.163.com
+
+# Hello world
+
+Docker 允许你在容器内运行应用程序， 使用 **docker run** 命令来在容器内运行一个应用程序
+
+```
+docker run ubuntu:15.10 /bin/echo "Hello world"
+```
+
+安装一个 ubuntu 15.10版本的容器，并在容器中输出hello world，如果本地不存在该容器就会从远程仓库下载，相当于你在 Docker 容器内安装了一个 ubuntu 系统的虚拟环境，可以在里面执行各种Linux的指令。
+
+## 交互式容器
+
+相当于可以在容器虚拟环境中打开控制台。
+
+放在镜像名后的是命令，这里我们希望有个交互式 Shell，因此用的是 /bin/bash
+
+```bash
+docker run -i -t ubuntu:15.10 /bin/bash
+# 或者
+docker run -it ubuntu:15.10 /bin/bash
+```
+
+- **-t:** 在新容器内指定一个伪终端或终端。
+- **-i:** 允许你对容器内的标准输入 (STDIN) 进行交互。
+- **-d：**让容器在后台运行，输入后不进入交互模式 
+- **-p**：表示暴露端口
+- 在控制台中输入exit退出
+
+如果输入了-d 参数，会让容器后台运行，那么怎么进入到容器中呢？
+
+一个是`docker attach 容器ID `命令，如果从这个命令进入到容器中后，再输入`exit`会把整个容器也退出，不再维持后台运行的状态。
+
+另一个是`docker exec -it 容器ID /bin/bash`命令回到容器中，执行这个命令在容器中输入`exit`不会把整个容器也退出，容器仍将维持后台运行状态。
+
+## Docker状态
+
+输入指令`docker ps -a`可以查看所有的容器。
+
+![image-20211014233025791](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\image-20211014233025791.png)
+
+如果要恢复一个已经停止的容器可以输入`docker start 容器ID`，同样的，想要停止一个容器可以输入`docker stop 容器ID`。
+
+另外还有`docker restart 容器ID` 命令用于重启容器
+
+| CONTAINER ID | IMAGE      | COMMAND              | CREATED        | STATUS   |
+| ------------ | ---------- | -------------------- | -------------- | -------- |
+| 容器 ID      | 使用的镜像 | 启动容器时运行的命令 | 容器的创建时间 | 容器状态 |
+
+容器的状态有7种：
+
+- created（已创建）
+- restarting（重启中）
+- running 或 Up（运行中）
+- removing（迁移中）
+- paused（暂停）
+- exited（停止）
+- dead（死亡）
+
+## 删除一个容器
+
+```
+docker rm -f 容器ID
+```
+
+## 清理列表中所有终止状态的容器
+
+```
+docker container prune
+```
+
+## 查看镜像
+
+导入之后可以输入`docker images`来查看所有的容器镜像列表
+
+![image-20211015233846053](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\image-20211015233846053.png)
+
+| **REPOSITORY** | **TAG**    | **IMAGE ID** | **CREATED**  | **SIZE** |
+| -------------- | ---------- | ------------ | ------------ | -------- |
+| 镜像的仓库源   | 镜像的标签 | 镜像ID       | 镜像创建时间 | 镜像大小 |
+
+## 删除镜像
+
+```
+docker rmi 镜像仓库源
+# 比如说要删除上面的test v0.0.1版本
+docker rmi test:v0.0.1
+```
+
+## 获取镜像
+
+当使用`docker run `命令来运行本地不存在的镜像时会自动下载镜像，但也可以使用`docker pull`命令来提前下载
+
+```
+docker pull 镜像名:版本号
+# 例如
+docker pull ubuntu:15.10
+```
+
+## 查找镜像
+
+直接去官网找吧 **https://hub.docker.com/**
+
+## 安装软件
+
+比如在上面的官网中查找一个 redis 镜像，然后安装最新版的
+
+```bash
+docker run -d -p 6379:6379 --name redis redis:latest
+```
+
+-p 命令后面接的端口号指， 宿主机端口号:容器内端口号，也就是说把容器内开启的端口号挂载到宿主机的端口号上。
+
+## 将宿主机目录指向容器内目录
+
+使用 -v 指令
+
+```bash
+docker run -p 3000:3000 --name my-server -v 代码位置的绝对路径:/app -d server:v1
+```
+
+- bind mount: -v 绝对路径
+- volumn: -v 随便起一个名字
+
+上面的命令表示将宿主机某个绝对路径上的代码挂载到容器里的 app 目录下，后台运行，容器名字为 server，并且版本号为 v1
+
+## 容器间通信
+
+创建一个虚拟网络进行通信
+
+```bash
+docker network create my-net
+```
+
+创建完成网络之后就可以在一个容器内指定网络，比如在 my-net 网络中启动 redis 容器，并且用 --network-alias 起了一个别名
+
+```bash
+docker run -d --name redis --network my-net --network-alias redis redis:latest
+```
+
+# docker-compose
+
+可以使用 docker 组合将多个容器进行组合到一起，然后可以一键运行多个容器
+
+比如 windows 的桌面图形版 docker 就不需要单独安装，如果是 MacOS 或者 Linux 系统就需要单独安装 
+
+命令行输入 `docker-compose -v` 检测是否安装成功
+
+需要单独编写 docker-compose 脚本，然后在其中编写命令使用
+
+在同一个 docker-compose 里的容器都默认使用相同的网络，就不需要单独再写网络了
+
+在编写 docker-compose.yml 的目录执行 `docker-compose up` 就能跑起来了，如需后台运行可以加 -d 参数
+
+具体关于 docker-compose 的使用可以看下面实战篇
+
+## docker-compose 常用命令
+
+查看容器运行状态
+
+```bash
+docker-compose ps -a
+```
+
+启动容器并构建
+
+```bash
+docker-compose up --build -d
+```
+
+不使用缓存构建容器
+
+```bash
+docker-compose build --no-cache
+```
+
+删除容器
+
+```bash
+docker-compose down
+```
+
+重启容器
+
+```bash
+docker-compose restart
+```
+
+停止容器
+
+```bash
+docker-compose stop
+```
+
+单个服务重启
+
+```bash
+docker-compose restart service-name
+```
+
+进入某个容器服务的命令行
+
+```bash
+docker-compose exec service-name sh
+```
+
+查看某个容器服务运行日志
+
+```bash
+docker-compose logs service-name
+```
+
+# 实战篇
+
+## 基础部署
+
+这里我们来拿一个前端应用创建一个镜像，我之前写了一个后台管理系统，拿来举个例子
+
+```bash
+docker run -it -d --name admin --privileged -p 8080:8080 -v ${PWD}/:/admin node:16.14.2 /bin/bash -c "cd /admin && npm install -g pnpm && pnpm install && pnpm run start"
+```
+
+这句话的意思是 创建一个 docker 容器并在后台运行，--privileged 命令是授予容器 root 权限，然后把容器的 8080 端口暴露到宿主机的8080 端口， 然后把宿主机内的代码目录路径指向容器内的 `/admin` 路径( `${PWD}` 命令是获取当前目录的绝对路径，当前目录则为代码所在的根目录)， 然后使用 node 16.14.2版本的镜像，在控制台依次运行下列命令：
+
+>cd /admin  进入到容器内的 /admin 目录
+>
+>node install -g pnpm  全局安装 pnpm 包管理器(我项目中用到了pnpm)
+>
+>pnpm install 安装依赖
+>
+>pnpm run start 启动项目，运行在8080端口
+
+如果想要修改容器内的文件，则需要使用 vim，但是可能会遇到容器没有 vim 命令的问题，解决方式如下
+
+```bash
+# 先运行
+apt-get update
+# 再安装 vim
+apt-get install vim
+```
+
+## 利用 Docker 进行后端项目部署
 
 首先需要准备一个云服务器，前提就是需要有服务器~~~这里我用的是腾讯云的 CentOS7系统，这也是 Linux 系统的。具体需要云服务器的可以自己到腾讯云或者阿里云购买，如果是学生身份的话买一个服务器就一两百块一年。买服务器这一步就不具体详述了。
 
-# Docker 安装
+下面我们就主要讲一下如何利用 docker-compose 部署一个在本地开发好的 nginx + node.js + redis + mongodb 的项目到云服务器上。
 
-首先登录到云服务器上，可以通过腾讯云或者阿里云的官网进行网页登录，也可以利用 ssh 在本地控制台登录。登录成功后先安装 Docker 
+## Docker 安装
+
+首先登录到云服务器上，可以通过腾讯云或者阿里云的官网进行网页登录，也可以利用 ssh 在本地控制台登录。登录成功后先安装 Docker 。不知道怎么在本地连接远程服务器的可以看我另一篇文章 [手摸手教你如何从零一步一步部署一个前端项目到远程服务器~~](https://juejin.cn/post/6976114620897427464)
 
 ```bash
 sudo yum install docker-ce docker-ce-cli containerd.io
@@ -29,6 +332,8 @@ sudo yum install docker-ce docker-ce-cli containerd.io
 ```bash
 Docker version 20.10.13, build a224086
 ```
+
+如果不是 CentOS 系统可以自己去官网安装。安装地址在这儿 `https://docs.docker.com/get-docker/`，找到和自己电脑对应的操作系统安装就行
 
 ## 设置开机自启
 
@@ -64,22 +369,9 @@ sudo docker run hello-world
 
 最终控制台显示了 `Hello from Docker!` 那就证明安装 Docker 这一步就已经完成啦。
 
-# Docker基本概念
+## 服务器安装 docker-compose
 
-使用 Docker 前需要先了解这几个基本概念
-
-- 镜像（image）
-- 容器（container）
-- 仓库（repository）
-
-获取镜像的方式可以通过 Dockerfile 文件创建，也可以通过 dockerHub 仓库下载
-
-- Docker 中**镜像**和**容器**的关系就像**类**与**实例**的关系
-- 镜像可以通过 Dockerfile 文件来生成，容器通过镜像来创建
-
-# 安装 Docker-Compose
-
-Docker-Compose 是一个用于定义和运行多容器 Docker 应用程序的工具，可以设置好多个容器，然后可以使用一个命令启动所有容器。
+docker-compose 是一个用于定义和运行多容器 Docker 应用程序的工具，可以设置好多个容器，然后可以使用一个命令启动所有容器。
 
 Linux 安装，控制台输入如下命令：
 
@@ -100,7 +392,7 @@ docker-compose -v
 # 控制台显示：docker-compose version 1.29.2, build 5becea4c
 ```
 
-# CentOS 系统安装 Git
+## 服务器安装 Git
 
 ```bash
 yum install -y git
@@ -136,6 +428,8 @@ git config --global user.email "邮箱地址"
 ```bash
 git config -l
 ```
+
+
 
 ## 配置 ssh 密钥
 
@@ -198,11 +492,9 @@ Warning: Permanently added 'github.com,20.205.243.166' (ECDSA) to the list of kn
 Hi xxxxxxx(你的git名字)! You've successfully authenticated, but GitHub does not provide shell access.
 ```
 
-# 准备好开发完毕的项目
+## 准备好开发完毕的项目
 
 我这里用的项目主要是 Node.js 编写的服务器，其中里面引用了 mongodb 和 redis，然后使用 nginx 作为网关然后配置反向代理。
-
-
 
 我们的项目结构是这样子的，我们下面就拿这样的目录结构来做示范~~~
 
@@ -210,7 +502,7 @@ Hi xxxxxxx(你的git名字)! You've successfully authenticated, but GitHub does 
 |-- epidemic-compose
    |-- docker-compose.yml # 编写 docker-compose 编排逻辑的
    |-- epidemic-server # node 服务器
-   |-- mongo # 存放mongo初始化脚本和作为容器中mongodb数据的挂载目录
+   |-- mongo # 存放 mongo 初始化脚本和作为容器中 mongodb 数据的挂载目录
    |-- nginx # nginx 的配置
 ```
 
@@ -482,10 +774,10 @@ http {
 正常来说将本地代码部署到远程服务器上有几种方式：
 
 1. 在本地连接到远程服务器后直接将本地的代码通过文件传输命令行发送到服务器上，然后在服务器上进行所有操作
-
 2. 在本地把所有容器 build 好之后上传到 DockerHub 中（一般要设置为私有仓库），然后在服务器上拉取 DockerHub 的镜像
-
 3. 本地开发完之后上传代码到Git，然后在服务器上通过 Git 拉取代码，然后进行部署
+
+
 
 我们这里使用的是第三种方法来进行代码管理 ：
 
@@ -509,7 +801,7 @@ git clone git@github.com:用户名/仓库名.git
 ls -a
 ```
 
-然后进入到仓库中，我们的仓库就叫做 `epidemic-compose`，然后就要 `cd epidemic-compose` 进入项目文件夹内，准备构建项目
+然后进入到仓库中，我们的仓库就叫做  `epidemic-compose`，然后就要 `cd epidemic-compose` 进入项目文件夹内，准备构建项目
 
 然后运行下面的这个命令，等待安装完成~~~ 到这里其实项目就已经是可以正常访问了的~
 
@@ -527,6 +819,7 @@ docker-compose up -d --build
 
 看吧，我们只要把项目开发完毕之后，再编写一下 docker 的配置文件，就可以快速从一个机器上把项目部署到另一个机器上
 ，我这里开发的时候用的是 Windows 系统，然后用 docker 快速把项目部署到 Linux 系统的服务器上。不难吧~~~
+
 # 结语
 
-后面有时间再写一下关于前端项目如何部署，其实也不难，可以利用 CDN 的方式，也可以使用 nginx 放到服务器上部署。如果你也想部署你的项目，看完教程还不会，可以私信我
+其实在最后一步的时候还可以加上自动化，比如每次我们从本地上传最新代码到 git 的时候就触发一个钩子函数，服务器上从仓库拉取最新代码然后重新启动容器，这样的话我们就能做到一套完整的自动化部署流程了。

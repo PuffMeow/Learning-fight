@@ -207,10 +207,6 @@ docker run -d --name redis --network my-net --network-alias redis redis:latest
 
 在同一个 docker-compose 里的容器都默认使用相同的网络，就不需要单独再写网络了
 
-#### 编写配置文件
-
-
-
 #### 运行
 
 在编写 docker-compose.yml 的目录执行 `docker-compose up` 就能跑起来了，如需后台运行可以加 -d 参数
@@ -283,13 +279,13 @@ linux命令中有几个压缩包所用的命令，这里先了解一下，下面
 
 ### 实战篇
 
-这里我们来拿一个前端应用创建一个镜像，我之前写了一个关于疫情的后台管理系统，拿来举个例子
+这里我们来拿一个前端应用创建一个镜像，我之前写了一个后台管理系统，拿来举个例子
 
 ```bash
-docker run -it -d --name epidemic-admin --privileged -p 8080:8080 -v ${PWD}/:/admin node:16.14.2 /bin/bash -c "cd /admin && npm install -g pnpm && pnpm install && pnpm run start"
+docker run -it -d --name admin --privileged -p 8080:8080 -v ${PWD}/:/admin node:16.14.2 /bin/bash -c "cd /admin && npm install -g pnpm && pnpm install && pnpm run start"
 ```
 
-这句话的意思是 创建一个 docker 容器并在后台运行，--privileged 命令是授予容器root权限，然后把容器的8080端口暴露到宿主机的8080端口， 然后把宿主机内的代码目录路径指向容器内的 /admin 路径(${PWD}命令是获取当前目录的绝对路径，当前目录则为代码所在的根目录)， 然后使用 node 16.14.2版本的镜像，在控制台依次运行下列命令：
+这句话的意思是 创建一个 docker 容器并在后台运行，--privileged 命令是授予容器 root 权限，然后把容器的 8080 端口暴露到宿主机的8080 端口， 然后把宿主机内的代码目录路径指向容器内的 `/admin` 路径( `${PWD}` 命令是获取当前目录的绝对路径，当前目录则为代码所在的根目录)， 然后使用 node 16.14.2版本的镜像，在控制台依次运行下列命令：
 
 >cd /admin  进入到容器内的 /admin 目录
 >
@@ -307,30 +303,3 @@ apt-get update
 # 再安装 vim
 apt-get install vim
 ```
-
-### docker-compose 相关命令
-
-启动容器并构建
-
-```bash
-docker-compose up --build -d
-```
-
-不使用缓存构建容器
-
-```bash
-docker-compose build --no-cache
-```
-
-删除容器
-
-```bash
-docker-compose down
-```
-
-重启容器
-
-```bash
-docker-compose restart
-```
-
