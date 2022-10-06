@@ -1,4 +1,4 @@
-### Docker 是什么？
+## Docker 简介
 
 简单一句话就是一个应用打包、分发、部署的工具，可以把它理解为一个轻量的虚拟机，但是是以容器的方式运行的。
 
@@ -90,51 +90,21 @@ docker run -it ubuntu:15.10 /bin/bash
 
 另一个是`docker exec -it 容器ID /bin/bash`命令回到容器中，执行这个命令在容器中输入`exit`不会把整个容器也退出，容器仍将维持后台运行状态。
 
-### Docker状态
+## 镜像
 
-输入指令`docker ps -a`可以查看所有的容器。
 
-![image-20211014233025791](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\image-20211014233025791.png)
-
-如果要恢复一个已经停止的容器可以输入`docker start 容器ID`，同样的，想要停止一个容器可以输入`docker stop 容器ID`。
-
-另外还有`docker restart 容器ID`命令用于重启容器
-
-| CONTAINER ID | IMAGE      | COMMAND              | CREATED        | STATUS   |
-| ------------ | ---------- | -------------------- | -------------- | -------- |
-| 容器 ID      | 使用的镜像 | 启动容器时运行的命令 | 容器的创建时间 | 容器状态 |
-
-容器的状态有7种：
-
-- created（已创建）
-- restarting（重启中）
-- running 或 Up（运行中）
-- removing（迁移中）
-- paused（暂停）
-- exited（停止）
-- dead（死亡）
-
-### 删除一个容器
-
-```
-docker rm -f 容器ID
-```
-
-### 清理列表中所有终止状态的容器
-
-```
-docker container prune
-```
 
 ### 查看镜像
 
-导入之后可以输入`docker images`来查看所有的容器镜像列表
+```
+docker images
+```
 
-![image-20211015233846053](C:\Users\JqWang\AppData\Roaming\Typora\typora-user-images\image-20211015233846053.png)
+### 启动一个镜像
 
-| **REPOSITORY** | **TAG**    | **IMAGE ID** | **CREATED**  | **SIZE** |
-| -------------- | ---------- | ------------ | ------------ | -------- |
-| 镜像的仓库源   | 镜像的标签 | 镜像ID       | 镜像创建时间 | 镜像大小 |
+```
+docker run --name test-mysql -d -p 3306:3306 -e  MYSQL_ROOT_PASSWORD=123456 -v /root/data:/var/lib/mysql mysql
+```
 
 ### 删除镜像
 
@@ -168,6 +138,32 @@ docker run -d -p 6379:6379 --name redis redis:latest
 
 -p 命令后面接的端口号指， 宿主机端口号:容器内端口号，也就是说把容器内开启的端口号挂载到宿主机的端口号上。
 
+## 容器
+
+### 删除一个容器
+
+```
+docker rm -f 容器ID
+```
+
+### 清理列表中所有终止状态的容器
+
+```
+docker container prune
+```
+
+### 查看当前运行的所有容器
+
+```
+docker container ls
+```
+
+### 查看当前存在的所有容器
+
+```
+docker ps -a
+```
+
 ### 将宿主机目录指向容器内目录
 
 使用 -v 指令
@@ -195,7 +191,7 @@ docker network create my-net
 docker run -d --name redis --network my-net --network-alias redis redis:latest
 ```
 
-### docker-compose
+## docker-compose
 
 可以使用 docker 组合将多个容器进行组合到一起，然后可以一键运行多个容器
 
@@ -276,30 +272,3 @@ linux命令中有几个压缩包所用的命令，这里先了解一下，下面
 
 > volumes-from 指定的是容器名字
 > strip 1 表示解压时去掉前面1层目录，因为压缩时包含了绝对路径
-
-### 实战篇
-
-这里我们来拿一个前端应用创建一个镜像，我之前写了一个后台管理系统，拿来举个例子
-
-```bash
-docker run -it -d --name admin --privileged -p 8080:8080 -v ${PWD}/:/admin node:16.14.2 /bin/bash -c "cd /admin && npm install -g pnpm && pnpm install && pnpm run start"
-```
-
-这句话的意思是 创建一个 docker 容器并在后台运行，--privileged 命令是授予容器 root 权限，然后把容器的 8080 端口暴露到宿主机的8080 端口， 然后把宿主机内的代码目录路径指向容器内的 `/admin` 路径( `${PWD}` 命令是获取当前目录的绝对路径，当前目录则为代码所在的根目录)， 然后使用 node 16.14.2版本的镜像，在控制台依次运行下列命令：
-
->cd /admin  进入到容器内的 /admin 目录
->
->node install -g pnpm  全局安装 pnpm 包管理器(我项目中用到了pnpm)
->
->pnpm install 安装依赖
->
->pnpm run start 启动项目，运行在8080端口
-
-如果想要修改容器内的文件，则需要使用 vim，但是可能会遇到容器没有 vim 命令的问题，解决方式如下
-
-```bash
-# 先运行
-apt-get update
-# 再安装 vim
-apt-get install vim
-```
