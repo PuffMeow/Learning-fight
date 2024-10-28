@@ -1096,7 +1096,7 @@ enum Gender {
 	Boy,
 	Girl,
 }
-//枚举的变体都位于标识符的命名空间下，使用两个冒号分隔开
+// 枚举的变体都位于标识符的命名空间下，使用两个冒号分隔开
 let boy = Gender::Boy;
 let girl = Gender::Girl;
 ```
@@ -1109,7 +1109,7 @@ enum Gender {
     Girl(String),
 }
 
-//或者
+// 或者
 enum Gender {
     Boy(String, String, String),
     Girl(String),
@@ -1140,14 +1140,14 @@ fn main() {
     let boy = Gender::Boy(boy1, boy2, boy3);
     let girl = Gender::Girl(girl1);
 
-    //boys are: Boy("大锤", "中风", "小明"), girl is: Girl("小红")
+    // boys are: Boy("大锤", "中风", "小明"), girl is: Girl("小红")
     println!("boys are: {:?}, girl is: {:?}", boy, girl);
 }
 ```
 
 #### 为枚举定义方法
 
-类似于给结构体定义方法，使用impl关键字。
+类似于给结构体定义方法，使用 impl 关键字。
 
 ```rust
 enum Gender {
@@ -1200,7 +1200,7 @@ fn main() {
     let y: Option<i8> = Some(5);
     let z: Option<i8> = None;
 
-    //报错cannot add `std::option::Option<i8>` to `i8`
+    // 报错cannot add `std::option::Option<i8>` to `i8`
     let sum = x + y;
 }
 ```
@@ -1222,10 +1222,10 @@ enum UsState {
 }
 
 enum Coin {
-    Penny,            //一便士
-    Nickel,           //五美分
-    Dime,             //十美分
-    Quarter(UsState), //二十五美分
+    Penny,            // 一便士
+    Nickel,           // 五美分
+    Dime,             // 十美分
+    Quarter(UsState), // 二十五美分
 }
 
 fn value_in_coin(coin: Coin) -> u8 {
@@ -1324,7 +1324,7 @@ fn main() {
 
 **Package（包）、Crate（单元包）、Module（模块）**
 
-- Package(最顶层)：Cargo特性，让你构建、测试、共享Crate
+- Package (最顶层)：Cargo特性，让你构建、测试、共享 Crate
 - Crate(处于Package层级下)：一个模块树，可以产生一个library或可执行文件
 - Module：使用use关键字，让你控制代码的组织、作用域、私有路径。
 - Path：路径为struct、function或module等项命名的方式
@@ -2145,7 +2145,7 @@ fn main() {
 
 - main函数返回类型是()
 - main函数的返回类型也可以是：Result<T, E>
-- Box<dyn Error>是trait对象，理解为任何可能的错误类型
+- Box<dyn Error\>是trait对象，理解为任何可能的错误类型
 
 ```rust
 use std::error::Error;
@@ -2265,7 +2265,7 @@ fn main() {
 
 - struct里的泛型参数类型可以和定义的方法的泛型类型参数不同
 
-### Trait(特性)
+### Trait(特征)
 
 这个也是Rust中最重要的特性之一。
 
@@ -2688,10 +2688,9 @@ From\<T> / Into\<T> / AsRef\<T> / AsMut\<T>
 
 Deref / DerefMut
 
-比如 Add trait，它允许你重载加法运算符。Rust 为所有的运算符都提供了 trait，你可以为自己的类型重载某些操作符。
+操作符还有加减乘除等，比如 Add trait，它允许你重载加法运算符。Rust 为所有的运算符都提供了 trait，你可以为自己的类型重载某些操作符。
 
 ```rust
-
 pub trait Deref {
     // 解引用出来的结果类型
     type Target: ?Sized;
@@ -4852,7 +4851,7 @@ fn main() {
         data: String::from("测试2"),
     };
 
-    //可以看到释放数据的顺序和创建时是反过来的
+    // 可以看到释放数据的顺序和创建时是反过来的
     // 自定义智能指针创建
     // 释放数据:测试2
     // 释放数据:测试1

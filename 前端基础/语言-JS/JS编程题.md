@@ -618,6 +618,7 @@ function version(v1, v2) {
   while (arr1.length < len) {
     arr1.push('0')
   }
+    
   while (arr2.length < len) {
     arr2.push('0')
   }
